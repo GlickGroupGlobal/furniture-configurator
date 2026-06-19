@@ -1,17 +1,24 @@
-import { useRef, useState, useCallback } from 'react'
+import { useRef, useState, useCallback, useEffect } from 'react'
 import { OrbitControls, Grid } from '@react-three/drei'
 import Room from './Room'
 import FurniturePiece from './FurniturePiece'
+import { applySnap } from '../snap'
 
 export default function Scene({ room, pieces, selectedId, setSelectedId, updatePiece }) {
-  const dragging = useRef(null)
+  const dragging  = useRef(null)
+  const roomRef   = useRef(room)
+  const piecesRef = useRef(pieces)
   const [isDragging, setIsDragging] = useState(false)
+
+  // Keep refs current without recreating handlers
+  useEffect(() => { roomRef.current   = room   }, [room])
+  useEffect(() => { piecesRef.current = pieces }, [pieces])
 
   const onPiecePointerDown = useCallback((e, piece) => {
     e.stopPropagation()
     setSelectedId(piece.id)
     dragging.current = {
-      id: piece.id,
+      id:      piece.id,
       offsetX: piece.x - e.point.x,
       offsetZ: piece.z - e.point.z,
     }
@@ -24,10 +31,17 @@ export default function Scene({ room, pieces, selectedId, setSelectedId, updateP
 
   const onFloorPointerMove = useCallback((e) => {
     if (!dragging.current) return
-    updatePiece(dragging.current.id, {
-      x: e.point.x + dragging.current.offsetX,
-      z: e.point.z + dragging.current.offsetZ,
-    })
+    const rawX = e.point.x + dragging.current.offsetX
+    const rawZ = e.point.z + dragging.current.offsetZ
+
+    // Find the piece being dragged so snap can read its dimensions/type
+    const draggingPiece = piecesRef.current.find(p => p.id === dragging.current.id)
+    if (!draggingPiece) return
+
+    const { x, z, elevation } = applySnap(
+      draggingPiece, rawX, rawZ, roomRef.current, piecesRef.current
+    )
+    updatePiece(dragging.current.id, { x, z, elevation })
   }, [updatePiece])
 
   const onFloorPointerUp = useCallback(() => {
@@ -46,7 +60,7 @@ export default function Scene({ room, pieces, selectedId, setSelectedId, updateP
       />
       <directionalLight position={[-5, 8, -5]} intensity={0.3} />
 
-      {/* Large invisible plane — captures drag pointer events */}
+      {/* Large invisible plane — captures drag & deselect pointer events */}
       <mesh
         rotation={[-Math.PI / 2, 0, 0]}
         position={[0, 0.001, 0]}
