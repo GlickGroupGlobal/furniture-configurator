@@ -2,7 +2,8 @@ import { useRef, useState, useCallback, useEffect } from 'react'
 import { OrbitControls, Grid } from '@react-three/drei'
 import Room from './Room'
 import FurniturePiece from './FurniturePiece'
-import { applySnap } from '../snap'
+import { applySnap }        from '../snap'
+import { resolveCollision } from '../collision'
 
 export default function Scene({ room, pieces, selectedId, setSelectedId, updatePiece }) {
   const dragging  = useRef(null)
@@ -38,8 +39,14 @@ export default function Scene({ room, pieces, selectedId, setSelectedId, updateP
     const draggingPiece = piecesRef.current.find(p => p.id === dragging.current.id)
     if (!draggingPiece) return
 
-    const { x, z, elevation } = applySnap(
+    const { x: snapX, z: snapZ, elevation } = applySnap(
       draggingPiece, rawX, rawZ, roomRef.current, piecesRef.current
+    )
+    // Resolve collisions against other pieces (uses updated elevation from snap)
+    const { x, z } = resolveCollision(
+      { ...draggingPiece, elevation },
+      snapX, snapZ,
+      piecesRef.current
     )
     updatePiece(dragging.current.id, { x, z, elevation })
   }, [updatePiece])
