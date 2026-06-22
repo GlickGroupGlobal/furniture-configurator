@@ -2,6 +2,11 @@ import { useState, useCallback } from 'react'
 import { Canvas } from '@react-three/fiber'
 import Scene from './components/Scene'
 import { MATERIALS, PIECE_DEFS, DEFAULT_MATERIAL } from './constants'
+import { estimatePiecePrice, estimateTotalPrice } from './pricing'
+
+function formatUSD(n) {
+  return `$${n.toLocaleString(undefined, { maximumFractionDigits: 0 })}`
+}
 
 const SIDEBAR_W = 280
 
@@ -64,9 +69,13 @@ function SectionLabel({ children }) {
 
 function EditPanel({ piece, onChange, onDelete }) {
   const def = PIECE_DEFS[piece.type]
+  const price = estimatePiecePrice(piece)
   return (
     <div>
       <SectionLabel>{def.label}</SectionLabel>
+      <div style={{ fontSize: 13, color: '#9ca3af', marginBottom: 14 }}>
+        Est. price: <strong style={{ color: '#34d399' }}>{formatUSD(price)}</strong>
+      </div>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 12, marginBottom: 14 }}>
         <NumInput label="Width"  value={piece.width}  min={def.minWidth}  max={def.maxWidth}
           onChange={v => onChange({ width: v })} />
@@ -109,6 +118,7 @@ function EditPanel({ piece, onChange, onDelete }) {
 
 function Sidebar({ room, setRoom, pieces, selectedId, setSelectedId, updatePiece, removePiece, addPiece }) {
   const selected = pieces.find(p => p.id === selectedId)
+  const total = estimateTotalPrice(pieces)
 
   return (
     <div style={{
@@ -118,8 +128,22 @@ function Sidebar({ room, setRoom, pieces, selectedId, setSelectedId, updatePiece
       display: 'flex', flexDirection: 'column', padding: '16px',
       overflowY: 'auto',
     }}>
-      <div style={{ fontWeight: 600, fontSize: 15, color: '#f9fafb', marginBottom: 20 }}>
+      <div style={{ fontWeight: 600, fontSize: 15, color: '#f9fafb', marginBottom: 16 }}>
         Furniture Configurator
+      </div>
+
+      {/* Running price estimate */}
+      <div style={{
+        marginBottom: 24, padding: '12px 14px',
+        background: 'rgba(16,185,129,0.08)', border: '1px solid rgba(16,185,129,0.25)',
+        borderRadius: 8,
+      }}>
+        <div style={{ fontSize: 22, fontWeight: 700, color: '#34d399', lineHeight: 1.1 }}>
+          {formatUSD(total)}
+        </div>
+        <div style={{ fontSize: 11, color: '#6b7280', marginTop: 2 }}>
+          Estimated total · {pieces.length} piece{pieces.length !== 1 ? 's' : ''}
+        </div>
       </div>
 
       <div style={{ marginBottom: 24 }}>
@@ -183,10 +207,42 @@ function Sidebar({ room, setRoom, pieces, selectedId, setSelectedId, updatePiece
   )
 }
 
+function ViewToggle({ viewMode, setViewMode }) {
+  const modes = [
+    ['orbit', 'Orbit'],
+    ['top', 'Top View'],
+    ['front', 'Front View'],
+  ]
+  return (
+    <div style={{
+      position: 'absolute', top: 16, right: 16, zIndex: 10,
+      display: 'flex', gap: 4,
+      background: 'rgba(17,24,39,0.92)', border: '1px solid #374151',
+      borderRadius: 8, padding: 4,
+    }}>
+      {modes.map(([mode, label]) => (
+        <button
+          key={mode}
+          onClick={() => setViewMode(mode)}
+          style={{
+            padding: '6px 12px', fontSize: 12, borderRadius: 6,
+            border: 'none', cursor: 'pointer',
+            background: viewMode === mode ? '#4338ca' : 'transparent',
+            color: viewMode === mode ? '#fff' : '#9ca3af',
+          }}
+        >
+          {label}
+        </button>
+      ))}
+    </div>
+  )
+}
+
 export default function ConfiguratorApp() {
   const [room, setRoom] = useState({ width: 12, length: 14, height: 9 })
   const [pieces, setPieces] = useState([])
   const [selectedId, setSelectedId] = useState(null)
+  const [viewMode, setViewMode] = useState('orbit')
 
   const addPiece = useCallback((type) => {
     const piece = makePiece(type)
@@ -202,9 +258,6 @@ export default function ConfiguratorApp() {
     setPieces(prev => prev.filter(p => p.id !== id))
   }, [])
 
-  const camDist = Math.max(room.width, room.length) * 1.1
-  const camPos = [camDist * 0.7, camDist * 0.6, camDist * 0.8]
-
   return (
     <div style={{ width: '100%', height: '100vh', position: 'relative', background: '#111827' }}>
       <Sidebar
@@ -213,9 +266,9 @@ export default function ConfiguratorApp() {
         updatePiece={updatePiece} removePiece={removePiece} addPiece={addPiece}
       />
       <div style={{ position: 'absolute', top: 0, left: SIDEBAR_W, right: 0, bottom: 0 }}>
+        <ViewToggle viewMode={viewMode} setViewMode={setViewMode} />
         <Canvas
           shadows
-          camera={{ position: camPos, fov: 50 }}
           style={{ width: '100%', height: '100%' }}
           gl={{ antialias: true }}
         >
@@ -226,6 +279,7 @@ export default function ConfiguratorApp() {
             selectedId={selectedId}
             setSelectedId={setSelectedId}
             updatePiece={updatePiece}
+            viewMode={viewMode}
           />
         </Canvas>
       </div>

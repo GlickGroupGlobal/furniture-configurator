@@ -2,10 +2,11 @@ import { useRef, useState, useCallback, useEffect } from 'react'
 import { OrbitControls, Grid } from '@react-three/drei'
 import Room from './Room'
 import FurniturePiece from './FurniturePiece'
+import ViewCamera from './ViewCamera'
 import { applySnap }        from '../snap'
 import { resolveCollision } from '../collision'
 
-export default function Scene({ room, pieces, selectedId, setSelectedId, updatePiece }) {
+export default function Scene({ room, pieces, selectedId, setSelectedId, updatePiece, viewMode }) {
   const dragging  = useRef(null)
   const roomRef   = useRef(room)
   const piecesRef = useRef(pieces)
@@ -56,8 +57,15 @@ export default function Scene({ room, pieces, selectedId, setSelectedId, updateP
     setIsDragging(false)
   }, [])
 
+  const target =
+    viewMode === 'top'   ? [0, 0, 0] :
+    viewMode === 'front' ? [0, room.height / 2, 0] :
+    [0, room.height * 0.3, 0]
+
   return (
     <>
+      <ViewCamera viewMode={viewMode} room={room} />
+
       <ambientLight intensity={0.5} />
       <directionalLight
         position={[room.width * 0.4, room.height * 2, room.length * 0.4]}
@@ -109,9 +117,9 @@ export default function Scene({ room, pieces, selectedId, setSelectedId, updateP
         enabled={!isDragging}
         enablePan
         enableZoom
-        enableRotate
-        maxPolarAngle={Math.PI / 2.05}
-        target={[0, room.height * 0.3, 0]}
+        enableRotate={viewMode === 'orbit'}
+        maxPolarAngle={viewMode === 'orbit' ? Math.PI / 2.05 : undefined}
+        target={target}
       />
     </>
   )
