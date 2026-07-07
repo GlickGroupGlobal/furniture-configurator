@@ -1,16 +1,20 @@
 import * as THREE from 'three'
+import { getWoodBaseTexture, useTiledTexture } from '../textures'
 
 const FLOOR = '#c8b89a'
 const WALL = '#ede8e0'
 const WALL_EDGE = '#b0a898'
 
 export default function Room({ width, length, height }) {
+  const floorBase = getWoodBaseTexture(FLOOR)
+  const floorMap = useTiledTexture(floorBase, Math.max(2, width / 2), Math.max(2, length / 2))
+
   return (
     <group>
-      {/* Floor */}
+      {/* Floor — extra segments avoid a visible diagonal seam under the textured material */}
       <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0, 0]} receiveShadow>
-        <planeGeometry args={[width, length]} />
-        <meshStandardMaterial color={FLOOR} roughness={0.8} />
+        <planeGeometry args={[width, length, 8, 8]} />
+        <meshStandardMaterial map={floorMap} color={FLOOR} roughness={0.75} />
       </mesh>
 
       {/* Back wall — z = -length/2, faces into room (+z) */}

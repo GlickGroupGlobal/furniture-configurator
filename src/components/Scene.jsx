@@ -1,8 +1,9 @@
 import { useRef, useState, useCallback, useEffect } from 'react'
-import { OrbitControls, Grid } from '@react-three/drei'
+import { OrbitControls, Grid, Environment, ContactShadows } from '@react-three/drei'
 import Room from './Room'
 import FurniturePiece from './FurniturePiece'
 import ViewCamera from './ViewCamera'
+import { RoomDimensionLabels } from './DimensionLabels'
 import { applySnap }        from '../snap'
 import { resolveCollision } from '../collision'
 
@@ -62,18 +63,34 @@ export default function Scene({ room, pieces, selectedId, setSelectedId, updateP
     viewMode === 'front' ? [0, room.height / 2, 0] :
     [0, room.height * 0.3, 0]
 
+  // Shadow camera frustum sized to the actual room footprint (with margin)
+  // instead of three.js's default — keeps shadow resolution sharp instead
+  // of spreading 2048px across a much larger default area.
+  const shadowExtent = Math.max(room.width, room.length) * 0.75
+
   return (
     <>
       <ViewCamera viewMode={viewMode} room={room} />
 
-      <ambientLight intensity={0.5} />
+      <hemisphereLight skyColor="#fff6ea" groundColor="#cbb89a" intensity={0.55} />
+      <ambientLight intensity={0.3} />
       <directionalLight
         position={[room.width * 0.4, room.height * 2, room.length * 0.4]}
-        intensity={0.9}
+        intensity={1.1}
         castShadow
         shadow-mapSize={[2048, 2048]}
+        shadow-camera-left={-shadowExtent}
+        shadow-camera-right={shadowExtent}
+        shadow-camera-top={shadowExtent}
+        shadow-camera-bottom={-shadowExtent}
+        shadow-camera-near={0.5}
+        shadow-camera-far={room.height * 6}
+        shadow-bias={-0.0002}
+        shadow-normalBias={0.03}
       />
-      <directionalLight position={[-5, 8, -5]} intensity={0.3} />
+      <directionalLight position={[-5, 8, -5]} intensity={0.25} />
+
+      <Environment preset="apartment" background={false} environmentIntensity={0.35} />
 
       {/* Large invisible plane — captures drag & deselect pointer events */}
       <mesh
@@ -90,11 +107,11 @@ export default function Scene({ room, pieces, selectedId, setSelectedId, updateP
       <Grid
         args={[100, 100]}
         cellSize={1}
-        cellThickness={0.4}
-        cellColor="#374151"
+        cellThickness={0.3}
+        cellColor="#d8cdbb"
         sectionSize={5}
-        sectionThickness={0.8}
-        sectionColor="#4b5563"
+        sectionThickness={0.6}
+        sectionColor="#c2b39c"
         fadeDistance={50}
         fadeStrength={1}
         followCamera={false}
@@ -103,6 +120,15 @@ export default function Scene({ room, pieces, selectedId, setSelectedId, updateP
       />
 
       <Room width={room.width} length={room.length} height={room.height} />
+      <RoomDimensionLabels room={room} />
+
+      <ContactShadows
+        position={[0, 0.002, 0]}
+        opacity={0.45}
+        scale={Math.max(room.width, room.length) * 1.4}
+        blur={2.4}
+        far={room.height * 0.5}
+      />
 
       {pieces.map(piece => (
         <FurniturePiece

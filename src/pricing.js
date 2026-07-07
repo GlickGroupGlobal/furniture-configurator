@@ -24,6 +24,19 @@ const MIN_FREIGHT_COST      = 40   // $ floor per piece
 const FREIGHT_RATE          = 3    // $ per cubic foot
 const BASE_FREIGHT          = 20   // $ flat per piece
 
+// Premium style options add a cost multiplier on top of the base
+// material/type calculation — e.g. glass fronts and drawer boxes cost more
+// to fabricate than a plain paneled door.
+const STYLE_PRICE_MULTIPLIER = {
+  glass:   1.15,
+  drawers: 1.20,
+}
+
+function stylePriceMultiplier(piece) {
+  const styleValue = piece.doorStyle ?? piece.frontStyle
+  return STYLE_PRICE_MULTIPLIER[styleValue] ?? 1.0
+}
+
 /** Estimated price for a single piece, in USD. */
 export function estimatePiecePrice(piece) {
   const widthIn  = piece.width  * 12
@@ -33,8 +46,9 @@ export function estimatePiecePrice(piece) {
 
   const materialRate  = MATERIAL_RATE[piece.material] ?? MATERIAL_RATE.solid_oak
   const typeMultiplier = TYPE_MULTIPLIER[piece.type] ?? 1.0
+  const styleMultiplier = stylePriceMultiplier(piece)
 
-  const manufacturerCost = Math.max(MIN_MANUFACTURER_COST, volumeFt3 * materialRate * typeMultiplier)
+  const manufacturerCost = Math.max(MIN_MANUFACTURER_COST, volumeFt3 * materialRate * typeMultiplier * styleMultiplier)
   const freightCost      = Math.max(MIN_FREIGHT_COST, volumeFt3 * FREIGHT_RATE + BASE_FREIGHT)
 
   return manufacturerCost + freightCost
