@@ -162,13 +162,13 @@ function FinishPicker({ family, finish, onChange }) {
   const fam = MATERIAL_FAMILIES[family] ?? MATERIAL_FAMILIES[DEFAULT_FAMILY]
   return (
     <div>
-      <div style={{ display: 'flex', gap: 4, marginBottom: 8 }}>
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, marginBottom: 8 }}>
         {Object.entries(MATERIAL_FAMILIES).map(([key, f]) => (
           <button
             key={key}
             onClick={() => onChange({ family: key, finish: f.finishes[0].code })}
             style={{
-              flex: 1, padding: '6px 4px', fontSize: 11, borderRadius: 7, cursor: 'pointer', fontWeight: 600,
+              flex: '1 1 30%', padding: '6px 4px', fontSize: 11, borderRadius: 7, cursor: 'pointer', fontWeight: 600,
               border: `1px solid ${family === key ? THEME.accent : THEME.border}`,
               background: family === key ? THEME.accentSoft : THEME.surface,
               color: family === key ? THEME.accentHover : THEME.textMuted,

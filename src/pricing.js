@@ -11,6 +11,11 @@ export const DEFAULT_RATE_CARD = {
     particle_board: { doorPanel: 22,   cabinetBody: 17, backboard: 15 },
     osb:            { doorPanel: 30.5, cabinetBody: 26, backboard: 22.5 },
     plywood:        { doorPanel: 43.5, cabinetBody: 29, backboard: 22.5 },
+    // PLACEHOLDER rates — no supplier sheet numbers yet for these families;
+    // set real values in Admin > Pricing before quoting with them.
+    pet:            { doorPanel: 30.5, cabinetBody: 26, backboard: 22.5 },
+    liquid_metal:   { doorPanel: 43.5, cabinetBody: 29, backboard: 22.5 },
+    hvea:           { doorPanel: 30.5, cabinetBody: 26, backboard: 22.5 },
   },
   // relative labor/complexity by piece type
   typeMultipliers: {
