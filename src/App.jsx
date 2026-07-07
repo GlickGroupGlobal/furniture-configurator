@@ -10,6 +10,7 @@ import Pricing from './marketing/pages/Pricing'
 import FAQ from './marketing/pages/FAQ'
 import Contact from './marketing/pages/Contact'
 import ConfiguratorApp from './ConfiguratorApp'
+import AdminApp from './admin/AdminApp'
 
 export default function App() {
   return (
@@ -29,6 +30,9 @@ export default function App() {
 
       {/* Phase 1 configurator — full-screen, no marketing nav */}
       <Route path="configurator" element={<ConfiguratorApp />} />
+
+      {/* Internal admin panel — orders, pricing, discounts */}
+      <Route path="admin" element={<AdminApp />} />
     </Routes>
   )
 }
