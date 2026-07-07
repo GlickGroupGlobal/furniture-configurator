@@ -1,0 +1,303 @@
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 8px;
+  font-weight: 600;
+  text-decoration: none;
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
+  cursor: pointer;
+  border: none;
+  padding: 12px 24px;
+  font-size: 14px;
+}
+.btn--lg { padding: 14px 28px; font-size: 15px; }
+.btn--primary { background: var(--color-accent); color: #fff; }
+.btn--primary:hover { background: var(--color-accent-hover); }
+.btn--ghost { background: transparent; color: var(--color-text-muted); border: 1.5px solid var(--color-border); }
+.btn--ghost:hover { color: var(--color-text); border-color: var(--color-text-muted); }
+
+/* ── Header ── */
+.ben__header {
+  max-width: 760px;
+  margin: 0 auto;
+  padding: 72px 32px 64px;
+  text-align: center;
+}
+
+.ben__eyebrow {
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--color-accent);
+  margin-bottom: 16px;
+}
+
+.ben__title {
+  font-size: clamp(28px, 4vw, 44px);
+  font-weight: 800;
+  color: var(--color-text);
+  letter-spacing: -0.02em;
+  margin-bottom: 20px;
+}
+
+.ben__subtitle {
+  font-size: 17px;
+  line-height: 1.7;
+  color: var(--color-text-muted);
+}
+
+/* ── Sections ── */
+.ben__section {
+  padding: 72px 0;
+  border-top: 1px solid var(--color-border);
+}
+
+.ben__section--alt {
+  background: var(--color-surface-alt);
+}
+
+.ben__section-inner {
+  max-width: 960px;
+  margin: 0 auto;
+  padding: 0 32px;
+}
+
+.ben__section-label {
+  display: inline-block;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  border-radius: 20px;
+  padding: 4px 12px;
+  margin-bottom: 20px;
+}
+.ben__section-label--cost    { background: #1c1f3a; color: var(--color-accent); border: 1px solid #3730a3; }
+.ben__section-label--quality { background: #0f2a1e; color: var(--color-success); border: 1px solid #065f46; }
+.ben__section-label--config  { background: #1c1a10; color: #fbbf24; border: 1px solid #92400e; }
+.ben__section-label--tradeoff{ background: #1c1520; color: #c084fc; border: 1px solid #7e22ce; }
+
+.ben__section-heading {
+  font-size: clamp(22px, 3vw, 32px);
+  font-weight: 800;
+  color: var(--color-text);
+  letter-spacing: -0.01em;
+  margin-bottom: 20px;
+}
+
+.ben__section-intro {
+  font-size: 15px;
+  line-height: 1.75;
+  color: var(--color-text-muted);
+  max-width: 720px;
+  margin-bottom: 16px;
+}
+
+.ben__section-cta {
+  display: inline-block;
+  margin-top: 24px;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--color-accent);
+  text-decoration: none;
+}
+.ben__section-cta:hover { text-decoration: underline; }
+
+/* ── Cost table ── */
+.ben__cost-table-wrap {
+  overflow-x: auto;
+  margin: 32px 0 12px;
+  border-radius: 10px;
+  border: 1px solid var(--color-border);
+}
+
+.ben__cost-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 14px;
+}
+
+.ben__cost-table th {
+  background: var(--color-surface);
+  color: var(--color-text-muted);
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  padding: 12px 20px;
+  text-align: left;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.ben__cost-table td {
+  padding: 14px 20px;
+  color: var(--color-text-muted);
+  border-bottom: 1px solid var(--color-border);
+}
+
+.ben__cost-table tr:last-child td {
+  border-bottom: none;
+}
+
+.ben__cost-table tr:hover td {
+  background: rgba(255,255,255,0.02);
+}
+
+.ben__cost-us {
+  color: var(--color-accent) !important;
+  font-style: italic;
+}
+
+.ben__table-note {
+  font-size: 12px;
+  color: var(--color-text-muted);
+  margin-bottom: 8px;
+  font-style: italic;
+}
+
+/* ── Quality grid ── */
+.ben__quality-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 24px;
+  margin: 32px 0 12px;
+}
+
+.ben__quality-card {
+  padding: 24px;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: 10px;
+}
+
+.ben__quality-card h3 {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--color-text);
+  margin-bottom: 10px;
+}
+
+.ben__quality-card p {
+  font-size: 14px;
+  line-height: 1.65;
+  color: var(--color-text-muted);
+}
+
+/* ── Configurator list ── */
+.ben__config-list {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin: 28px 0 32px;
+  max-width: 600px;
+}
+
+.ben__config-list li {
+  font-size: 15px;
+  line-height: 1.5;
+  color: var(--color-text-muted);
+  padding-left: 24px;
+  position: relative;
+}
+
+.ben__config-list li::before {
+  content: '✓';
+  position: absolute;
+  left: 0;
+  color: #fbbf24;
+  font-weight: 700;
+}
+
+/* ── Tradeoff table ── */
+.ben__tradeoff-table-wrap {
+  overflow-x: auto;
+  margin: 32px 0 20px;
+  border-radius: 10px;
+  border: 1px solid var(--color-border);
+}
+
+.ben__tradeoff-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 14px;
+}
+
+.ben__tradeoff-table th {
+  background: var(--color-surface);
+  color: var(--color-text-muted);
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  padding: 12px 20px;
+  text-align: left;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.ben__tradeoff-table td {
+  padding: 13px 20px;
+  color: var(--color-text-muted);
+  border-bottom: 1px solid var(--color-border);
+  vertical-align: top;
+}
+
+.ben__tradeoff-table tr:last-child td {
+  border-bottom: none;
+}
+
+.ben__tradeoff-table tr:hover td {
+  background: rgba(255,255,255,0.02);
+}
+
+.ben__tradeoff-dimension {
+  font-weight: 600;
+  color: var(--color-text) !important;
+  white-space: nowrap;
+}
+
+/* ── Bottom CTA ── */
+.ben__bottom-cta {
+  border-top: 1px solid var(--color-border);
+  padding: 80px 0;
+  text-align: center;
+}
+
+.ben__bottom-cta__inner {
+  max-width: 560px;
+  margin: 0 auto;
+  padding: 0 32px;
+}
+
+.ben__bottom-cta__inner h2 {
+  font-size: 30px;
+  font-weight: 800;
+  color: var(--color-text);
+  letter-spacing: -0.01em;
+  margin-bottom: 12px;
+}
+
+.ben__bottom-cta__inner p {
+  font-size: 15px;
+  line-height: 1.65;
+  color: var(--color-text-muted);
+  margin-bottom: 32px;
+}
+
+.ben__bottom-cta__actions {
+  display: flex;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+/* ── Responsive ── */
+@media (max-width: 700px) {
+  .ben__header { padding: 48px 16px 40px; }
+  .ben__section-inner { padding: 0 16px; }
+  .ben__bottom-cta__inner { padding: 0 16px; }
+
+  .ben__quality-grid { grid-template-columns: 1fr; }
+}

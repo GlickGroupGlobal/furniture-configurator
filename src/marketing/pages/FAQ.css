@@ -1,0 +1,117 @@
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 8px;
+  font-weight: 600;
+  text-decoration: none;
+  transition: background 0.15s;
+  cursor: pointer;
+  border: none;
+  padding: 12px 24px;
+  font-size: 14px;
+}
+.btn--primary { background: var(--color-accent); color: #fff; }
+.btn--primary:hover { background: var(--color-accent-hover); }
+
+.faq__header {
+  max-width: 720px;
+  margin: 0 auto;
+  padding: 72px 32px 56px;
+  text-align: center;
+}
+
+.faq__eyebrow {
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--color-accent);
+  margin-bottom: 16px;
+}
+
+.faq__title {
+  font-size: clamp(28px, 4vw, 40px);
+  font-weight: 800;
+  color: var(--color-text);
+  letter-spacing: -0.02em;
+  margin-bottom: 20px;
+}
+
+.faq__subtitle {
+  font-size: 16px;
+  line-height: 1.7;
+  color: var(--color-text-muted);
+}
+
+.faq__list {
+  max-width: 760px;
+  margin: 0 auto;
+  padding: 0 32px 64px;
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
+.faq__item {
+  padding: 28px 0;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.faq__item:first-child {
+  border-top: 1px solid var(--color-border);
+}
+
+.faq__question {
+  font-size: 17px;
+  font-weight: 700;
+  color: var(--color-text);
+  margin-bottom: 10px;
+}
+
+.faq__answer {
+  font-size: 14.5px;
+  line-height: 1.7;
+  color: var(--color-text-muted);
+}
+
+.faq__todo {
+  margin-top: 8px;
+  font-size: 13.5px;
+}
+
+.faq__todo-badge {
+  display: inline-block;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: #fbbf24;
+  background: #1c1a10;
+  border: 1px solid #92400e;
+  border-radius: 20px;
+  padding: 3px 10px;
+}
+
+.faq__todo-note {
+  color: var(--color-text-muted);
+  font-style: italic;
+}
+
+.faq__cta {
+  border-top: 1px solid var(--color-border);
+  background: var(--color-surface-alt);
+  padding: 56px 32px;
+  text-align: center;
+}
+
+.faq__cta p {
+  font-size: 15px;
+  color: var(--color-text-muted);
+  margin-bottom: 20px;
+}
+
+@media (max-width: 600px) {
+  .faq__header { padding: 48px 16px 40px; }
+  .faq__list { padding: 0 16px 48px; }
+}
