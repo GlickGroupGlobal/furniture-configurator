@@ -10,8 +10,9 @@ export default function Gallery() {
         <p className="gal__eyebrow">Proof, not promises</p>
         <h1 className="gal__title">Gallery</h1>
         <p className="gal__subtitle">
-          Real completed pieces, starting with the order that proved this sourcing
-          model works. More photos get added here as new orders complete.
+          Real cabinet projects from installed homes and factory trial assembly.
+          These are the kinds of photos and videos customers receive before and
+          after production.
         </p>
       </div>
 
@@ -19,14 +20,17 @@ export default function Gallery() {
         {GALLERY_ITEMS.map((item) => (
           <div key={item.id} className="gal__card">
             <div className="gal__image-wrap">
-              {item.image ? (
-                <img src={item.image} alt={item.title} className="gal__image" />
+              {item.mediaType === 'video' ? (
+                <video className="gal__image" src={item.src} controls preload="metadata" playsInline />
+              ) : item.src ? (
+                <img src={item.src} alt={item.title} className="gal__image" loading="lazy" />
               ) : (
                 <div className="gal__image-placeholder">
-                  <span>{item.image === null ? 'Photo pending' : ''}</span>
+                  <span>Photo pending</span>
                 </div>
               )}
             </div>
+            {item.category && <p className="gal__category">{item.category}</p>}
             <h3 className="gal__card-title">{item.title}</h3>
             <p className="gal__card-caption">{item.caption}</p>
           </div>

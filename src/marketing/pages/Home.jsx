@@ -1,6 +1,14 @@
 import { Link } from 'react-router-dom'
 import './Home.css'
 
+const INSTALLATION_MEDIA = {
+  hero: '/installations/office-01.jpg',
+  kitchen: '/installations/kitchen-02.png',
+  wardrobe: '/installations/wardrobe-01.jpg',
+  factory: '/installations/factory-trial-01.jpg',
+  video: '/installations/video-wardrobe.mp4',
+}
+
 // ── data ─────────────────────────────────────────────────────────────────────
 // Edit these arrays to update content without touching component code.
 
@@ -52,7 +60,7 @@ export default function Home() {
     <div className="home">
 
       {/* ── Hero ── */}
-      <section className="home-hero">
+      <section className="home-hero" style={{ backgroundImage: `linear-gradient(90deg, rgba(33,28,22,0.82), rgba(33,28,22,0.52) 48%, rgba(33,28,22,0.18)), url(${INSTALLATION_MEDIA.hero})` }}>
         <div className="home-hero__content">
           <p className="home-hero__eyebrow">Custom furniture, sourced direct</p>
           <h1 className="home-hero__headline">
@@ -86,6 +94,31 @@ export default function Home() {
       </section>
 
       {/* ── The deal, plainly stated ── */}
+      <section className="home-proof">
+        <div className="home-proof__intro">
+          <p className="home-proof__eyebrow">Real production evidence</p>
+          <h2 className="home-proof__heading">Installed cabinets and factory trial assembly, not renderings.</h2>
+        </div>
+        <div className="home-proof__grid">
+          <figure className="home-proof__item home-proof__item--wide">
+            <img src={INSTALLATION_MEDIA.kitchen} alt="Installed light wood kitchen cabinetry" loading="lazy" />
+            <figcaption>Installed kitchen cabinetry</figcaption>
+          </figure>
+          <figure className="home-proof__item">
+            <img src={INSTALLATION_MEDIA.wardrobe} alt="Installed two-tone wardrobe and display cabinetry" loading="lazy" />
+            <figcaption>Wardrobe and display wall</figcaption>
+          </figure>
+          <figure className="home-proof__item">
+            <img src={INSTALLATION_MEDIA.factory} alt="Cabinet sections trial assembled in factory before shipping" loading="lazy" />
+            <figcaption>Factory trial assembly</figcaption>
+          </figure>
+          <figure className="home-proof__item home-proof__item--video">
+            <video src={INSTALLATION_MEDIA.video} controls preload="metadata" playsInline />
+            <figcaption>Installation walkthrough video</figcaption>
+          </figure>
+        </div>
+      </section>
+
       <section className="home-tradeoff">
         <div className="home-tradeoff__inner">
           <h2 className="home-tradeoff__heading">Here's exactly what you're getting into</h2>
