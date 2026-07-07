@@ -11,6 +11,12 @@ node_modules
 dist
 dist-ssr
 *.local
+.env
+.env.*
+!.env.example
+
+# Local quote/order database (server/store.js)
+server/data/
 
 # Editor directories and files
 .vscode/*
