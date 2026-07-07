@@ -155,7 +155,7 @@ export default function Home() {
         <div className="home-process__inner">
           <h2 className="home-process__heading">How it works</h2>
           <p className="home-process__subhead">
-            Four steps, clearly managed. <Link to="/how-it-works" className="home-process__detail-link">See the full process →</Link>
+            Four steps, clearly managed. <Link to="/process" className="home-process__detail-link">See the full process →</Link>
           </p>
           <div className="home-process__steps">
             {PROCESS_STEPS.map((step) => (
@@ -183,8 +183,8 @@ export default function Home() {
             ))}
           </div>
           <div className="home-trust__links">
-            <Link to="/benefits" className="home-trust__link">Full breakdown of benefits →</Link>
-            <Link to="/process" className="home-trust__link">Detailed timeline →</Link>
+            <Link to="/pricing" className="home-trust__link">Pricing and benefits →</Link>
+            <Link to="/process" className="home-trust__link">Process timeline →</Link>
           </div>
         </div>
       </section>

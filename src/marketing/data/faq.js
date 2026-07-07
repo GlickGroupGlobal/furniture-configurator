@@ -1,57 +1,37 @@
-// FAQ content. `answer: null` + `todo: true` means the policy is not yet decided —
-// render the visible TODO placeholder rather than inventing an answer.
-
 export const FAQ_ITEMS = [
   {
-    id: 'damaged',
-    question: 'What happens if a piece arrives damaged?',
-    answer: null,
-    todo: true,
-  },
-  {
-    id: 'assembly',
-    question: 'What does the assembly/installation add-on include, and what does it cost?',
-    answer:
-      'The add-on sends a local professional to your home to assemble and place your furniture so you don\'t have to. ' +
-      'It\'s quoted separately from the furniture itself, based on your location and the size of the order.',
-    todo: true,
-    todoNote: 'Exact pricing structure for the assembly add-on is not finalized.',
-  },
-  {
-    id: 'cancellation',
-    question: 'Can I cancel or change my order mid-process, and what happens to my deposit?',
-    answer: null,
-    todo: true,
-  },
-  {
-    id: 'payment-schedule',
-    question: 'What\'s the payment schedule?',
-    answer:
-      'The general structure is a deposit at order confirmation to begin production, with the balance due before shipping.',
-    todo: true,
-    todoNote: 'Exact deposit percentage and balance timing are not finalized.',
-  },
-  {
-    id: 'measurements',
-    question: 'What if I don\'t know how to take accurate measurements?',
-    answer:
-      'You don\'t need to be precise on your own. The discovery and consult step exists specifically to help you ' +
-      'translate "what I want" into accurate measurements — and the configurator lets you visualize dimensions ' +
-      'in context before anything is finalized.',
-    todo: false,
+    id: 'timeline',
+    question: 'How long does a custom cabinet order take?',
+    answer: 'Plan on roughly 14-16 weeks from deposit to delivery. The largest blocks are factory production, quality checks, sea freight, customs, and final delivery coordination.',
   },
   {
     id: 'materials',
-    question: 'What materials and finishes are available?',
-    answer:
-      'Currently: solid oak, solid walnut, painted birch plywood, and painted MDF. Each has a different look, ' +
-      'durability profile, and cost. The configurator lets you preview and price each option per piece.',
-    todo: false,
+    question: 'What materials can customers choose from?',
+    answer: 'The main promoted board families are particle board, FOSB board, and plywood. Pricing is tracked separately for door panels, cabinet bodies, and backboards.',
   },
   {
-    id: 'shipping-area',
-    question: 'Do you ship to my area?',
-    answer: null,
-    todo: true,
+    id: 'quote',
+    question: 'Is the configurator price final?',
+    answer: 'No. The configurator gives a useful estimate. A firm quote is issued after the design, dimensions, material choices, freight assumptions, and installation needs are reviewed.',
+  },
+  {
+    id: 'proof',
+    question: 'How do customers know the cabinets are really being built?',
+    answer: 'Factory photos, trial assembly images, and installation videos are part of the process. We use those updates to confirm the order is progressing and to catch issues before shipment.',
+  },
+  {
+    id: 'installation',
+    question: 'Do you provide installation?',
+    answer: 'Some projects can be self-installed from instructions. Where local installation support is available, it is quoted separately based on location, project size, and complexity.',
+  },
+  {
+    id: 'damage',
+    question: 'What happens if something arrives damaged?',
+    answer: 'Damage needs to be documented immediately with photos of the packaging and the affected part. We review the issue, coordinate replacement parts or repair options, and handle the claim path with the shipment record.',
+  },
+  {
+    id: 'changes',
+    question: 'Can an order be changed after deposit?',
+    answer: 'Changes are easiest before production begins. After materials are cut or production starts, changes may affect cost, timing, or may no longer be possible.',
   },
 ]

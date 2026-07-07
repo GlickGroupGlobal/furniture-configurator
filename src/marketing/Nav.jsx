@@ -3,11 +3,8 @@ import './Nav.css'
 
 const NAV_LINKS = [
   { to: '/',               label: 'Home',              end: true },
-  { to: '/how-it-works',   label: 'How It Works' },
-  { to: '/process',        label: 'Process & Timeline' },
-  { to: '/benefits',       label: 'Benefits' },
+  { to: '/process',        label: 'Process' },
   { to: '/gallery',        label: 'Gallery' },
-  { to: '/testimonials',   label: 'Testimonials' },
   { to: '/pricing',        label: 'Pricing' },
   { to: '/faq',            label: 'FAQ' },
   { to: '/contact',        label: 'Contact' },
