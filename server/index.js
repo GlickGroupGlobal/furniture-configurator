@@ -767,6 +767,21 @@ app.post('/api/vision/analyze-piece', (req, res, next) => {
   })().catch(next)
 })
 
+// ── Static frontend (production) ────────────────────────────────────────────
+// Serves the built client (npm run build -> dist/) so a single `node
+// server/index.js` process can host the whole site — dev mode instead runs
+// Vite separately (npm run dev/dev:web) and doesn't need this. Registered
+// last so it never shadows the /api or /uploads routes above.
+
+const DIST_DIR = path.join(path.dirname(fileURLToPath(import.meta.url)), '..', 'dist')
+
+if (fs.existsSync(DIST_DIR)) {
+  app.use(express.static(DIST_DIR, { index: false }))
+  app.get(/^(?!\/api|\/uploads).*/, (_req, res) => {
+    res.sendFile(path.join(DIST_DIR, 'index.html'))
+  })
+}
+
 app.use((err, req, res, _next) => {
   void _next
   const status = err.status ?? 500
