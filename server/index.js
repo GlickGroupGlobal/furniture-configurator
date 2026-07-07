@@ -1,8 +1,12 @@
 import express from 'express'
 import crypto from 'node:crypto'
+import fs from 'node:fs'
+import path from 'node:path'
 import { Buffer } from 'node:buffer'
 import process from 'node:process'
+import { fileURLToPath } from 'node:url'
 import { read, write } from './store.js'
+import { analyzeFurniturePhoto, sanitizeAnalysis, VisionConfigError, VisionApiError } from './vision.js'
 import { PIECE_DEFS, DEFAULT_DOOR_PROFILE } from '../src/constants.js'
 import { DEFAULT_RATE_CARD } from '../src/pricing.js'
 
@@ -15,15 +19,23 @@ if (!SESSION_SECRET) {
   throw new Error('SESSION_SECRET is required when NODE_ENV=production')
 }
 
+const UPLOADS_DIR = path.join(path.dirname(fileURLToPath(import.meta.url)), 'data', 'uploads')
+
 const app = express()
 app.disable('x-powered-by')
-app.use(express.json({ limit: '1mb' }))
+// 6mb: room for a resized reference photo (see analyze-piece below); the
+// client already downsizes images before sending.
+app.use(express.json({ limit: '6mb' }))
 app.use((_req, res, next) => {
   res.setHeader('X-Content-Type-Options', 'nosniff')
   res.setHeader('Referrer-Policy', 'same-origin')
   res.setHeader('Cache-Control', 'no-store')
   next()
 })
+// Reference photos saved by the autobuild feature — filenames are
+// server-generated UUIDs (no directory listing), served publicly so both
+// the configurator and admin order detail can display them.
+app.use('/uploads', express.static(UPLOADS_DIR, { maxAge: '30d', index: false }))
 
 export const ORDER_STATUSES = [
   'new', 'reviewing', 'quoted', 'confirmed', 'in_production', 'shipped', 'delivered', 'cancelled',
@@ -50,6 +62,81 @@ const ROLE_PERMISSIONS = {
 }
 
 const loginAttempts = new Map()
+
+// Soft per-IP cap on photo-autobuild calls, since each one costs money.
+// In-memory only (resets on restart) — this is a courtesy limit, not a
+// security boundary; the feature is off by default regardless.
+const autobuildAttempts = new Map()
+const AUTOBUILD_MAX_PER_WINDOW = 5
+const AUTOBUILD_WINDOW_MS = 24 * 60 * 60 * 1000
+
+function recordAndCheckAutobuildQuota(ip) {
+  const now = Date.now()
+  const current = autobuildAttempts.get(ip)
+  if (!current || now - current.windowStart > AUTOBUILD_WINDOW_MS) {
+    autobuildAttempts.set(ip, { count: 1, windowStart: now })
+    return true
+  }
+  if (current.count >= AUTOBUILD_MAX_PER_WINDOW) return false
+  current.count += 1
+  return true
+}
+
+const API_MESSAGES = {
+  en: {
+    accountManagedByEnv: 'This account is managed by environment variables',
+    atLeastOneOwner: 'At least one active owner is required',
+    cannotChangeOwnAccount: 'You cannot change your own role or deactivate your own account',
+    notAuthenticated: 'Not authenticated',
+    notAuthorized: 'Not authorized',
+    notAuthorizedForRole: 'Not authorized for that role',
+    notAuthorizedForUser: 'Not authorized for that user',
+    orderNotFound: 'Order not found',
+    passwordLength: 'Password must be at least 10 characters',
+    serverError: 'Server error',
+    tooManyAttempts: 'Too many failed login attempts. Try again later.',
+    userNotFound: 'User not found',
+    usernameExists: 'Username already exists',
+    wrongPassword: 'Wrong password',
+    featureDisabled: 'This feature is not enabled yet.',
+    invalidImage: 'Please upload a JPEG or PNG photo.',
+    imageTooLarge: 'That photo is too large.',
+    tooManyAnalyses: 'Too many photo analyses from this device today. Please try again later.',
+    visionNotConfigured: 'Photo analysis is not configured yet.',
+    visionFailed: 'Could not analyze that photo. Please try again.',
+  },
+  zh: {
+    accountManagedByEnv: '此账号由环境变量管理',
+    atLeastOneOwner: '至少需要保留一个启用的所有者账号',
+    cannotChangeOwnAccount: '不能修改自己的角色或停用自己的账号',
+    notAuthenticated: '未登录',
+    notAuthorized: '没有权限',
+    notAuthorizedForRole: '没有权限管理该角色',
+    notAuthorizedForUser: '没有权限管理该用户',
+    orderNotFound: '未找到订单',
+    passwordLength: '密码至少需要 10 个字符',
+    serverError: '服务器错误',
+    tooManyAttempts: '登录失败次数过多。请稍后再试。',
+    userNotFound: '未找到用户',
+    usernameExists: '用户名已存在',
+    wrongPassword: '密码错误',
+    featureDisabled: '此功能尚未启用。',
+    invalidImage: '请上传 JPEG 或 PNG 格式的照片。',
+    imageTooLarge: '照片文件过大。',
+    tooManyAnalyses: '此设备今天的照片分析次数过多，请稍后再试。',
+    visionNotConfigured: '照片分析功能尚未配置。',
+    visionFailed: '无法分析该照片，请重试。',
+  },
+}
+
+function requestLanguage(req) {
+  const raw = String(req.headers['x-language'] || req.headers['accept-language'] || 'en').toLowerCase()
+  return raw.startsWith('zh') ? 'zh' : 'en'
+}
+
+function message(req, key) {
+  return API_MESSAGES[requestLanguage(req)]?.[key] ?? API_MESSAGES.en[key] ?? key
+}
 
 function badRequest(message) {
   const err = new Error(message)
@@ -225,7 +312,7 @@ function canAttemptLogin(ip) {
 function requireAdmin(req, res, next) {
   const token = (req.headers.authorization ?? '').replace(/^Bearer /, '')
   const session = verifySessionToken(token)
-  if (!session) return res.status(401).json({ error: 'Not authenticated' })
+  if (!session) return res.status(401).json({ error: message(req, 'notAuthenticated') })
   const user = session.sub === 'env-admin' ? {
     id: 'env-admin',
     username: 'admin',
@@ -234,7 +321,7 @@ function requireAdmin(req, res, next) {
     active: true,
     mustChangePassword: false,
   } : findUserById(session.sub)
-  if (!user) return res.status(401).json({ error: 'Not authenticated' })
+  if (!user) return res.status(401).json({ error: message(req, 'notAuthenticated') })
   req.user = user
   req.permissions = permissionsForRole(user.role)
   next()
@@ -242,7 +329,7 @@ function requireAdmin(req, res, next) {
 
 function requirePermission(permission) {
   return (req, res, next) => {
-    if (!req.permissions?.[permission]) return res.status(403).json({ error: 'Not authorized' })
+    if (!req.permissions?.[permission]) return res.status(403).json({ error: message(req, 'notAuthorized') })
     next()
   }
 }
@@ -265,6 +352,13 @@ function sanitizeFinishCode(value, fallback = '') {
   return /^[a-z0-9#_. -]{0,80}$/i.test(text) ? text : fallback
 }
 
+// Only accept our own server-generated upload paths (see /api/vision/analyze-piece)
+// so a piece's sourcePhotoUrl can't be used to point at an arbitrary URL.
+function sanitizeUploadPath(value) {
+  const text = String(value ?? '')
+  return /^\/uploads\/[a-f0-9-]{8,80}\.(jpg|png)$/i.test(text) ? text : undefined
+}
+
 function sanitizePiece(piece, index) {
   const def = PIECE_DEFS[piece?.type]
   if (!def) throw badRequest(`Invalid piece type at position ${index + 1}`)
@@ -281,6 +375,9 @@ function sanitizePiece(piece, index) {
     bodyFamily: sanitizeMaterialKey(piece.bodyFamily),
     bodyFinish: sanitizeFinishCode(piece.bodyFinish),
   }
+
+  const sourcePhotoUrl = sanitizeUploadPath(piece.sourcePhotoUrl)
+  if (sourcePhotoUrl) clean.sourcePhotoUrl = sourcePhotoUrl
 
   if (def.cabinet) {
     const frontStyles = def.frontStyles ?? ['none']
@@ -401,14 +498,14 @@ app.get('/api/health', (_req, res) => {
 app.post('/api/admin/login', (req, res) => {
   const ip = req.ip ?? 'unknown'
   if (!canAttemptLogin(ip)) {
-    return res.status(429).json({ error: 'Too many failed login attempts. Try again later.' })
+    return res.status(429).json({ error: message(req, 'tooManyAttempts') })
   }
 
   const { username = 'admin', password } = req.body ?? {}
   const user = password ? verifyUserPassword(username, String(password)) : null
   if (!user) {
     recordLoginFailure(ip)
-    return res.status(401).json({ error: 'Wrong password' })
+    return res.status(401).json({ error: message(req, 'wrongPassword') })
   }
 
   loginAttempts.delete(ip)
@@ -422,12 +519,12 @@ app.post('/api/admin/login', (req, res) => {
 })
 
 app.put('/api/admin/password', requireAdmin, (req, res) => {
-  if (!req.permissions.changeOwnPassword) return res.status(403).json({ error: 'Not authorized' })
-  if (req.user.id === 'env-admin') return res.status(400).json({ error: 'This account is managed by environment variables' })
+  if (!req.permissions.changeOwnPassword) return res.status(403).json({ error: message(req, 'notAuthorized') })
+  if (req.user.id === 'env-admin') return res.status(400).json({ error: message(req, 'accountManagedByEnv') })
   const { password } = req.body ?? {}
   const cleanPassword = String(password ?? '')
   if (cleanPassword.length < 10) {
-    return res.status(400).json({ error: 'Password must be at least 10 characters' })
+    return res.status(400).json({ error: message(req, 'passwordLength') })
   }
   write(db => {
     const user = db.admin.users.find(account => account.id === req.user.id)
@@ -459,9 +556,9 @@ app.post('/api/admin/users', requireAdmin, requirePermission('manageUsers'), (re
   try {
     const username = sanitizeUsername(req.body?.username)
     const role = sanitizeRole(req.body?.role)
-    if (!canManageTarget(req.user, role)) return res.status(403).json({ error: 'Not authorized for that role' })
+    if (!canManageTarget(req.user, role)) return res.status(403).json({ error: message(req, 'notAuthorizedForRole') })
     const password = String(req.body?.password ?? '')
-    if (password.length < 10) throw badRequest('Password must be at least 10 characters')
+    if (password.length < 10) throw badRequest(message(req, 'passwordLength'))
     const user = {
       id: crypto.randomUUID(),
       username,
@@ -475,7 +572,7 @@ app.post('/api/admin/users', requireAdmin, requirePermission('manageUsers'), (re
     }
     let created = null
     write(db => {
-      if (db.admin.users.some(account => account.username === username)) throw badRequest('Username already exists')
+      if (db.admin.users.some(account => account.username === username)) throw badRequest(message(req, 'usernameExists'))
       db.admin.users.push(user)
       created = user
     })
@@ -491,17 +588,17 @@ app.patch('/api/admin/users/:id', requireAdmin, requirePermission('manageUsers')
     write(db => {
       const user = db.admin.users.find(account => account.id === req.params.id)
       if (!user) return
-      if (!canManageTarget(req.user, user.role)) throw badRequest('Not authorized for that user')
+      if (!canManageTarget(req.user, user.role)) throw badRequest(message(req, 'notAuthorizedForUser'))
       const nextRole = 'role' in req.body ? sanitizeRole(req.body.role, user.role) : user.role
-      if (!canManageTarget(req.user, nextRole)) throw badRequest('Not authorized for that role')
+      if (!canManageTarget(req.user, nextRole)) throw badRequest(message(req, 'notAuthorizedForRole'))
       if (user.id === req.user.id && (nextRole !== user.role || req.body.active === false)) {
-        throw badRequest('You cannot change your own role or deactivate your own account')
+        throw badRequest(message(req, 'cannotChangeOwnAccount'))
       }
       if (user.role === 'owner' && nextRole !== 'owner' && ownerCount(db.admin.users) <= 1) {
-        throw badRequest('At least one active owner is required')
+        throw badRequest(message(req, 'atLeastOneOwner'))
       }
       if (user.role === 'owner' && req.body.active === false && ownerCount(db.admin.users) <= 1) {
-        throw badRequest('At least one active owner is required')
+        throw badRequest(message(req, 'atLeastOneOwner'))
       }
       if ('name' in req.body) user.name = asCleanString(req.body.name, 120) || user.username
       if ('role' in req.body) user.role = nextRole
@@ -509,14 +606,14 @@ app.patch('/api/admin/users/:id', requireAdmin, requirePermission('manageUsers')
       if ('mustChangePassword' in req.body) user.mustChangePassword = Boolean(req.body.mustChangePassword)
       if (req.body.password) {
         const password = String(req.body.password)
-        if (password.length < 10) throw badRequest('Password must be at least 10 characters')
+        if (password.length < 10) throw badRequest(message(req, 'passwordLength'))
         user.passwordHash = hashPassword(password)
         user.mustChangePassword = Boolean(req.body.mustChangePassword ?? true)
       }
       user.updatedAt = new Date().toISOString()
       updated = user
     })
-    if (!updated) return res.status(404).json({ error: 'User not found' })
+    if (!updated) return res.status(404).json({ error: message(req, 'userNotFound') })
     res.json(publicUser(updated))
   } catch (err) {
     next(err)
@@ -561,7 +658,7 @@ app.get('/api/orders', requireAdmin, requirePermission('readOrders'), (_req, res
 
 app.get('/api/orders/:id', requireAdmin, requirePermission('readOrders'), (req, res) => {
   const order = read().orders.find(o => o.id === req.params.id)
-  if (!order) return res.status(404).json({ error: 'Order not found' })
+  if (!order) return res.status(404).json({ error: message(req, 'orderNotFound') })
   res.json(order)
 })
 
@@ -575,7 +672,7 @@ app.patch('/api/orders/:id', requireAdmin, requirePermission('editOrders'), (req
       Object.assign(order, patch)
       updated = order
     })
-    if (!updated) return res.status(404).json({ error: 'Order not found' })
+    if (!updated) return res.status(404).json({ error: message(req, 'orderNotFound') })
     res.json(updated)
   } catch (err) {
     next(err)
@@ -596,11 +693,85 @@ app.put('/api/rate-card', requireAdmin, requirePermission('editPricing'), (req, 
   }
 })
 
-app.use((err, _req, res, _next) => {
+// ── Feature flags ────────────────────────────────────────────────────────────
+// Public read so the configurator knows whether to show gated features at
+// all; admin-gated write, reusing the "editPricing" permission since this
+// lives alongside the rate card in Admin > Pricing.
+
+app.get('/api/features', (_req, res) => {
+  res.json({ autobuildEnabled: Boolean(read().features?.autobuildEnabled) })
+})
+
+app.put('/api/features', requireAdmin, requirePermission('editPricing'), (req, res) => {
+  const autobuildEnabled = Boolean(req.body?.autobuildEnabled)
+  write(db => { db.features.autobuildEnabled = autobuildEnabled })
+  res.json({ autobuildEnabled })
+})
+
+// ── Photo autobuild ──────────────────────────────────────────────────────────
+// Off by default (see /api/features above). Analyzes a customer's reference
+// photo with a vision model and returns a best-guess piece configuration for
+// the configurator to pre-fill — the customer still adjusts dimensions/
+// material afterward, same as any manually-added piece.
+
+const ALLOWED_IMAGE_TYPES = { 'image/jpeg': 'jpg', 'image/png': 'png' }
+const MAX_IMAGE_BYTES = 5 * 1024 * 1024
+
+function parseImageDataUrl(dataUrl) {
+  const match = /^data:(image\/(?:jpeg|png));base64,(.+)$/.exec(String(dataUrl ?? ''))
+  if (!match) return null
+  const [, mediaType, base64Data] = match
+  const approxBytes = base64Data.length * 0.75
+  if (approxBytes > MAX_IMAGE_BYTES) return null
+  return { mediaType, base64Data }
+}
+
+app.post('/api/vision/analyze-piece', (req, res, next) => {
+  (async () => {
+    if (!read().features?.autobuildEnabled) {
+      return res.status(403).json({ error: message(req, 'featureDisabled') })
+    }
+
+    const parsed = parseImageDataUrl(req.body?.image)
+    if (!parsed) return res.status(400).json({ error: message(req, 'invalidImage') })
+
+    const ip = req.ip ?? 'unknown'
+    if (!recordAndCheckAutobuildQuota(ip)) {
+      return res.status(429).json({ error: message(req, 'tooManyAnalyses') })
+    }
+
+    let raw
+    try {
+      raw = await analyzeFurniturePhoto(parsed.base64Data, parsed.mediaType)
+    } catch (err) {
+      if (err instanceof VisionConfigError) return res.status(503).json({ error: message(req, 'visionNotConfigured') })
+      if (err instanceof VisionApiError) {
+        console.error(err)
+        return res.status(502).json({ error: message(req, 'visionFailed') })
+      }
+      throw err
+    }
+
+    const analysis = sanitizeAnalysis(raw)
+
+    let photoUrl = null
+    if (analysis.isFurniture) {
+      const extension = ALLOWED_IMAGE_TYPES[parsed.mediaType]
+      const filename = `${crypto.randomUUID()}.${extension}`
+      fs.mkdirSync(UPLOADS_DIR, { recursive: true })
+      fs.writeFileSync(path.join(UPLOADS_DIR, filename), Buffer.from(parsed.base64Data, 'base64'))
+      photoUrl = `/uploads/${filename}`
+    }
+
+    res.json({ ...analysis, photoUrl })
+  })().catch(next)
+})
+
+app.use((err, req, res, _next) => {
   void _next
   const status = err.status ?? 500
   if (status >= 500) console.error(err)
-  res.status(status).json({ error: status >= 500 ? 'Server error' : err.message })
+  res.status(status).json({ error: status >= 500 ? message(req, 'serverError') : err.message })
 })
 
 app.listen(PORT, () => {

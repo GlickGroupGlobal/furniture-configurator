@@ -11,10 +11,11 @@ import {
   DOOR_PROFILE_LABELS,
   DEFAULT_DOOR_PROFILE,
 } from './constants'
-import { MATERIAL_FAMILIES, DEFAULT_FAMILY, DEFAULT_FINISH, GLASS_TINTS, DEFAULT_GLASS_TINT } from './materials'
+import { MATERIAL_FAMILIES, DEFAULT_FAMILY, DEFAULT_FINISH, GLASS_TINTS, DEFAULT_GLASS_TINT, getFinish } from './materials'
 import { estimatePiecePrice, estimateTotalPrice, DEFAULT_RATE_CARD } from './pricing'
-import { fetchRateCard, submitOrder } from './api'
-import { feetToMeters, metersToFeet, formatDimension } from './format'
+import { fetchRateCard, submitOrder, fetchFeatures, analyzePiecePhoto } from './api'
+import { resizeImageToDataUrl, applyAnalysisOverrides } from './autobuild'
+import { feetToMeters, metersToFeet, formatDimension, formatFeetInches } from './format'
 
 function formatUSD(n) {
   return `$${n.toLocaleString(undefined, { maximumFractionDigits: 0 })}`
@@ -486,12 +487,156 @@ function QuoteModal({ room, pieces, estimate, onClose }) {
   )
 }
 
+// ── Autobuild-from-photo modal ────────────────────────────────────────────────
+// Hidden entirely unless features.autobuildEnabled — see Sidebar below.
+
+function AutobuildModal({ onClose, onAdd }) {
+  const [previewUrl, setPreviewUrl] = useState(null)
+  const [state, setState] = useState('idle') // idle | analyzing | result | not_furniture | error
+  const [analysis, setAnalysis] = useState(null)
+  const [error, setError] = useState(null)
+
+  const inputStyle = {
+    width: '100%', background: THEME.surface, border: `1px solid ${THEME.border}`,
+    borderRadius: 8, color: THEME.text, padding: '8px 10px', fontSize: 14,
+  }
+
+  const reset = () => {
+    setPreviewUrl(null)
+    setState('idle')
+    setAnalysis(null)
+    setError(null)
+  }
+
+  const handleFile = async (file) => {
+    if (!file) return
+    setError(null)
+    setAnalysis(null)
+    setState('analyzing')
+    try {
+      const dataUrl = await resizeImageToDataUrl(file)
+      setPreviewUrl(dataUrl)
+      const result = await analyzePiecePhoto(dataUrl)
+      setAnalysis(result)
+      setState(result.isFurniture ? 'result' : 'not_furniture')
+    } catch (err) {
+      setError(err.message || 'Could not analyze that photo.')
+      setState('error')
+    }
+  }
+
+  const finish = analysis?.isFurniture ? getFinish(analysis.bodyFamily, analysis.bodyFinish) : null
+
+  return (
+    <div style={{
+      position: 'fixed', inset: 0, zIndex: 100, background: 'rgba(33,28,22,0.4)',
+      display: 'flex', alignItems: 'center', justifyContent: 'center',
+    }}>
+      <div style={{
+        width: 420, maxWidth: '92vw', maxHeight: '86vh', overflowY: 'auto',
+        background: THEME.bg, borderRadius: 14, padding: 24,
+        boxShadow: '0 12px 48px rgba(33,28,22,0.25)',
+      }}>
+        <h2 style={{ fontSize: 18, color: THEME.text, marginBottom: 6 }}>Autobuild from a photo</h2>
+        <p style={{ fontSize: 13, color: THEME.textMuted, lineHeight: 1.5, marginBottom: 16 }}>
+          Upload a photo of the piece you want, and we'll add a starting version to your room —
+          you'll still adjust the size and finish to fit your space.
+        </p>
+
+        {previewUrl && (
+          <img src={previewUrl} alt="Uploaded reference" style={{
+            width: '100%', maxHeight: 220, objectFit: 'contain', borderRadius: 10,
+            marginBottom: 14, background: THEME.surfaceAlt,
+          }} />
+        )}
+
+        {state === 'idle' && !previewUrl && (
+          <input
+            type="file"
+            accept="image/jpeg,image/png"
+            style={inputStyle}
+            onChange={e => handleFile(e.target.files?.[0])}
+          />
+        )}
+
+        {state === 'analyzing' && (
+          <p style={{ fontSize: 13.5, color: THEME.textMuted }}>Analyzing your photo…</p>
+        )}
+
+        {state === 'not_furniture' && (
+          <div>
+            <p style={{ fontSize: 13.5, color: THEME.danger, marginBottom: 12 }}>
+              {analysis?.description || "We couldn't confidently identify a supported piece in this photo. Try a clearer photo of a single cabinet, table, bar, or shelving unit."}
+            </p>
+            <button onClick={reset} style={{
+              width: '100%', padding: '9px', background: THEME.accent, color: '#fff',
+              border: 'none', borderRadius: 8, fontSize: 14, fontWeight: 600, cursor: 'pointer',
+            }}>
+              Try another photo
+            </button>
+          </div>
+        )}
+
+        {state === 'error' && (
+          <div>
+            <p style={{ fontSize: 13.5, color: THEME.danger, marginBottom: 12 }}>{error}</p>
+            <button onClick={reset} style={{
+              width: '100%', padding: '9px', background: THEME.accent, color: '#fff',
+              border: 'none', borderRadius: 8, fontSize: 14, fontWeight: 600, cursor: 'pointer',
+            }}>
+              Try again
+            </button>
+          </div>
+        )}
+
+        {state === 'result' && analysis && (
+          <div>
+            <div style={{
+              background: THEME.surfaceAlt, borderRadius: 10, padding: '12px 14px', marginBottom: 14,
+            }}>
+              <div style={{ fontSize: 13.5, color: THEME.text, marginBottom: 6 }}>{analysis.description}</div>
+              <div style={{ fontSize: 12, color: THEME.textMuted, lineHeight: 1.6 }}>
+                {PIECE_DEFS[analysis.pieceType]?.label} · {formatFeetInches(analysis.width)} × {formatFeetInches(analysis.height)} × {formatFeetInches(analysis.depth)}
+                {finish && <> · {finish.name}</>}
+              </div>
+            </div>
+            <p style={{ fontSize: 12, color: THEME.textMuted, marginBottom: 14 }}>
+              These are a best guess from the photo — you'll adjust dimensions and material next.
+            </p>
+            <div style={{ display: 'flex', gap: 8 }}>
+              <button onClick={reset} style={{
+                flex: 1, padding: '10px', background: 'transparent', color: THEME.textMuted,
+                border: `1px solid ${THEME.border}`, borderRadius: 8, fontSize: 14, cursor: 'pointer',
+              }}>
+                Try another
+              </button>
+              <button onClick={() => onAdd(analysis)} style={{
+                flex: 2, padding: '10px', background: THEME.accent, color: '#fff',
+                border: 'none', borderRadius: 8, fontSize: 14, fontWeight: 600, cursor: 'pointer',
+              }}>
+                Add to room
+              </button>
+            </div>
+          </div>
+        )}
+
+        <button onClick={onClose} style={{
+          width: '100%', marginTop: 12, padding: '8px', background: 'transparent', color: THEME.textMuted,
+          border: 'none', fontSize: 13, cursor: 'pointer',
+        }}>
+          Cancel
+        </button>
+      </div>
+    </div>
+  )
+}
+
 // ── Sidebar ───────────────────────────────────────────────────────────────────
 
 function Sidebar({
   room, setRoom, pieces, selectedId, setSelectedId,
   updatePiece, removePiece, addPiece, rateCard, onRequestQuote,
-  unitSystem, setUnitSystem,
+  unitSystem, setUnitSystem, autobuildEnabled, onOpenAutobuild,
 }) {
   const selected = pieces.find(p => p.id === selectedId)
   const total = estimateTotalPrice(pieces, rateCard)
@@ -571,6 +716,19 @@ function Sidebar({
       </CollapsibleSection>
 
       <CollapsibleSection title="Add Furniture" open={addOpen} onToggle={() => setAddOpen(o => !o)}>
+        {autobuildEnabled && (
+          <button
+            onClick={onOpenAutobuild}
+            style={{
+              width: '100%', marginBottom: 8, padding: '8px 10px',
+              background: THEME.surfaceAlt, border: `1px dashed ${THEME.accent}66`,
+              borderRadius: 8, color: THEME.accentHover, fontSize: 12.5, fontWeight: 600,
+              cursor: 'pointer', textAlign: 'left',
+            }}
+          >
+            📷 Autobuild from a photo
+          </button>
+        )}
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6 }}>
           {visibleTypes.map(([type, def]) => (
             <button
@@ -696,16 +854,27 @@ export default function ConfiguratorApp() {
   const [rateCard, setRateCard] = useState(DEFAULT_RATE_CARD)
   const [quoteOpen, setQuoteOpen] = useState(false)
   const [unitSystem, setUnitSystem] = useState('imperial')
+  const [features, setFeatures] = useState({ autobuildEnabled: false })
+  const [autobuildOpen, setAutobuildOpen] = useState(false)
 
-  // Pull the live rate card from the server; keep defaults when offline.
+  // Pull the live rate card + feature flags from the server; keep safe
+  // defaults (autobuild hidden) when offline.
   useEffect(() => {
     fetchRateCard().then(card => { if (card) setRateCard(card) })
+    fetchFeatures().then(setFeatures)
   }, [])
 
   const addPiece = useCallback((type) => {
     const piece = makePiece(type)
     setPieces(prev => [...prev, piece])
     setSelectedId(piece.id)
+  }, [])
+
+  const addPieceFromAnalysis = useCallback((analysis) => {
+    const piece = applyAnalysisOverrides(makePiece(analysis.pieceType), analysis)
+    setPieces(prev => [...prev, piece])
+    setSelectedId(piece.id)
+    setAutobuildOpen(false)
   }, [])
 
   const updatePiece = useCallback((id, updates) => {
@@ -726,6 +895,8 @@ export default function ConfiguratorApp() {
         onRequestQuote={() => setQuoteOpen(true)}
         unitSystem={unitSystem}
         setUnitSystem={setUnitSystem}
+        autobuildEnabled={features.autobuildEnabled}
+        onOpenAutobuild={() => setAutobuildOpen(true)}
       />
       <div style={{ position: 'absolute', top: 0, left: SIDEBAR_W, right: 0, bottom: 0 }}>
         <ViewToggle viewMode={viewMode} setViewMode={setViewMode} />
@@ -753,6 +924,12 @@ export default function ConfiguratorApp() {
           pieces={pieces}
           estimate={estimateTotalPrice(pieces, rateCard)}
           onClose={() => setQuoteOpen(false)}
+        />
+      )}
+      {autobuildOpen && (
+        <AutobuildModal
+          onClose={() => setAutobuildOpen(false)}
+          onAdd={addPieceFromAnalysis}
         />
       )}
     </div>

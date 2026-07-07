@@ -8,8 +8,11 @@ import {
   fetchOrders, updateOrder, fetchRateCard, saveRateCard,
   fetchAdminSession, changeAdminPassword,
   fetchUsers, createUser, updateUser,
+  getAdminLanguage, setAdminLanguage,
+  fetchFeatures, saveFeatures,
 } from '../api'
 import { formatFeetInches } from '../format'
+import { LANGUAGES, t } from './i18n'
 
 function formatUSD(n) {
   if (n == null || Number.isNaN(Number(n))) return '—'
@@ -30,12 +33,16 @@ function normalizeRateCard(rateCard) {
 
 const STATUSES = ['new', 'reviewing', 'quoted', 'confirmed', 'in_production', 'shipped', 'delivered', 'cancelled']
 
-const ROLE_LABELS = {
-  owner: 'Owner',
-  admin: 'Admin',
-  sales: 'Sales',
-  production: 'Production',
-  viewer: 'Viewer',
+const ROLE_LABEL_KEYS = {
+  owner: 'role_owner',
+  admin: 'role_admin',
+  sales: 'role_sales',
+  production: 'role_production',
+  viewer: 'role_viewer',
+}
+
+function roleLabel(role, language) {
+  return t(language, ROLE_LABEL_KEYS[role] ?? role)
 }
 
 const STATUS_COLORS = {
@@ -66,9 +73,31 @@ function StatusPill({ status }) {
   )
 }
 
+function LanguageToggle({ language, onChange }) {
+  const nextLanguage = language === 'zh' ? 'en' : 'zh'
+  const activeLanguage = LANGUAGES.find(item => item.code === language) ?? LANGUAGES[0]
+  return (
+    <button
+      type="button"
+      title={t(language, 'languageToggle')}
+      onClick={() => onChange(nextLanguage)}
+      style={{
+        display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 6,
+        height: 32, minWidth: 66, padding: '0 10px', borderRadius: 8, cursor: 'pointer',
+        border: `1px solid ${THEME.border}`, background: THEME.surfaceAlt, color: THEME.text,
+        fontSize: 12, fontWeight: 700,
+      }}
+      aria-label={t(language, 'languageToggle')}
+    >
+      <span style={{ fontSize: 13 }}>A/文</span>
+      <span>{activeLanguage.short}</span>
+    </button>
+  )
+}
+
 // ── Login ─────────────────────────────────────────────────────────────────────
 
-function Login({ onLoggedIn }) {
+function Login({ onLoggedIn, language, onLanguageChange }) {
   const [username, setUsername] = useState('admin')
   const [password, setPassword] = useState('')
   const [error, setError] = useState(null)
@@ -80,19 +109,24 @@ function Login({ onLoggedIn }) {
       const session = await adminLogin(username, password)
       onLoggedIn(session)
     } catch (err) {
-      setError(err.message || 'Wrong password, or the server is not running.')
+      setError(err.message || t(language, 'wrongPasswordFallback'))
     }
   }
 
   return (
     <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: THEME.bg }}>
       <form onSubmit={submit} style={{ ...card, width: 340 }}>
-        <h1 style={{ fontSize: 18, color: THEME.text, marginBottom: 4 }}>Admin</h1>
-        <p style={{ fontSize: 13, color: THEME.textMuted, marginBottom: 16 }}>Orders, pricing & users</p>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start', gap: 12, marginBottom: 16 }}>
+          <div>
+            <h1 style={{ fontSize: 18, color: THEME.text, marginBottom: 4 }}>{t(language, 'admin')}</h1>
+            <p style={{ fontSize: 13, color: THEME.textMuted }}>{t(language, 'loginSubtitle')}</p>
+          </div>
+          <LanguageToggle language={language} onChange={onLanguageChange} />
+        </div>
         <input
           style={{ ...input, marginBottom: 10 }}
           type="text"
-          placeholder="Username"
+          placeholder={t(language, 'username')}
           value={username}
           onChange={e => setUsername(e.target.value)}
           autoFocus
@@ -100,7 +134,7 @@ function Login({ onLoggedIn }) {
         <input
           style={input}
           type="password"
-          placeholder="Admin password"
+          placeholder={t(language, 'adminPassword')}
           value={password}
           onChange={e => setPassword(e.target.value)}
         />
@@ -109,14 +143,14 @@ function Login({ onLoggedIn }) {
           width: '100%', marginTop: 14, padding: '9px', background: THEME.accent, color: '#fff',
           border: 'none', borderRadius: 8, fontSize: 14, fontWeight: 600, cursor: 'pointer',
         }}>
-          Sign in
+          {t(language, 'signIn')}
         </button>
       </form>
     </div>
   )
 }
 
-function PasswordPanel({ defaultPassword, onChanged }) {
+function PasswordPanel({ defaultPassword, onChanged, language }) {
   const [password, setPassword] = useState('')
   const [confirm, setConfirm] = useState('')
   const [saving, setSaving] = useState(false)
@@ -128,11 +162,11 @@ function PasswordPanel({ defaultPassword, onChanged }) {
     setError(null)
     setMessage(null)
     if (password.length < 10) {
-      setError('Use at least 10 characters.')
+      setError(t(language, 'useTenCharacters'))
       return
     }
     if (password !== confirm) {
-      setError('Passwords do not match.')
+      setError(t(language, 'passwordMismatch'))
       return
     }
     setSaving(true)
@@ -140,10 +174,10 @@ function PasswordPanel({ defaultPassword, onChanged }) {
       await changeAdminPassword(password)
       setPassword('')
       setConfirm('')
-      setMessage('Password updated.')
+      setMessage(t(language, 'passwordUpdated'))
       onChanged()
     } catch (err) {
-      setError(err.message || 'Could not update password.')
+      setError(err.message || t(language, 'couldNotUpdatePassword'))
     } finally {
       setSaving(false)
     }
@@ -151,24 +185,24 @@ function PasswordPanel({ defaultPassword, onChanged }) {
 
   return (
     <form onSubmit={save} style={{ ...card, maxWidth: 520 }}>
-      <h2 style={{ fontSize: 17, color: THEME.text, marginBottom: 6 }}>Admin password</h2>
+      <h2 style={{ fontSize: 17, color: THEME.text, marginBottom: 6 }}>{t(language, 'adminPassword')}</h2>
       <p style={{ fontSize: 13, color: defaultPassword ? THEME.danger : THEME.textMuted, lineHeight: 1.5, marginBottom: 14 }}>
         {defaultPassword
-          ? 'The default password is still active. Change it before using this with real customer requests.'
-          : 'Update the shared admin password here.'}
+          ? t(language, 'defaultPasswordWarning')
+          : t(language, 'updateSharedPassword')}
       </p>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
         <input
           style={input}
           type="password"
-          placeholder="New password"
+          placeholder={t(language, 'newPassword')}
           value={password}
           onChange={e => setPassword(e.target.value)}
         />
         <input
           style={input}
           type="password"
-          placeholder="Confirm new password"
+          placeholder={t(language, 'confirmNewPassword')}
           value={confirm}
           onChange={e => setConfirm(e.target.value)}
         />
@@ -180,14 +214,14 @@ function PasswordPanel({ defaultPassword, onChanged }) {
         border: 'none', borderRadius: 8, fontSize: 14, fontWeight: 600, cursor: 'pointer',
         opacity: saving ? 0.6 : 1,
       }}>
-        {saving ? 'Saving...' : 'Change password'}
+        {saving ? t(language, 'saving') : t(language, 'changePassword')}
       </button>
     </form>
   )
 }
 
-function UsersPanel({ currentUser, sessionRoles }) {
-  const roles = sessionRoles ?? Object.keys(ROLE_LABELS)
+function UsersPanel({ currentUser, sessionRoles, language }) {
+  const roles = sessionRoles ?? Object.keys(ROLE_LABEL_KEYS)
   const [users, setUsers] = useState([])
   const [draft, setDraft] = useState({ username: '', name: '', role: 'sales', password: '', mustChangePassword: true })
   const [saving, setSaving] = useState(false)
@@ -203,9 +237,9 @@ function UsersPanel({ currentUser, sessionRoles }) {
     let cancelled = false
     fetchUsers()
       .then(list => { if (!cancelled) setUsers(list) })
-      .catch(err => { if (!cancelled) setError(err.message || 'Could not load users.') })
+      .catch(err => { if (!cancelled) setError(err.message || t(language, 'couldNotLoadUsers')) })
     return () => { cancelled = true }
-  }, [])
+  }, [language])
 
   const availableRoles = roles.filter(role => currentUser?.role === 'owner' || role !== 'owner')
 
@@ -218,9 +252,9 @@ function UsersPanel({ currentUser, sessionRoles }) {
       await createUser(draft)
       setDraft({ username: '', name: '', role: 'sales', password: '', mustChangePassword: true })
       await load()
-      setMessage('User added.')
+      setMessage(t(language, 'userAdded'))
     } catch (err) {
-      setError(err.message || 'Could not add user.')
+      setError(err.message || t(language, 'couldNotAddUser'))
     } finally {
       setSaving(false)
     }
@@ -232,14 +266,14 @@ function UsersPanel({ currentUser, sessionRoles }) {
     try {
       const updated = await updateUser(id, updates)
       setUsers(prev => prev.map(user => user.id === id ? updated : user))
-      setMessage('User updated.')
+      setMessage(t(language, 'userUpdated'))
     } catch (err) {
-      setError(err.message || 'Could not update user.')
+      setError(err.message || t(language, 'couldNotUpdateUser'))
     }
   }
 
   const resetPassword = async (user) => {
-    const password = window.prompt(`New password for ${user.username}`)
+    const password = window.prompt(t(language, 'passwordPrompt', { username: user.username }))
     if (!password) return
     await patchUser(user.id, { password, mustChangePassword: true })
   }
@@ -247,21 +281,21 @@ function UsersPanel({ currentUser, sessionRoles }) {
   return (
     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1.4fr', gap: 14, alignItems: 'start' }}>
       <form onSubmit={addUser} style={card}>
-        <h2 style={{ fontSize: 17, color: THEME.text, marginBottom: 12 }}>Add user</h2>
+        <h2 style={{ fontSize: 17, color: THEME.text, marginBottom: 12 }}>{t(language, 'addUser')}</h2>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-          <input style={input} placeholder="Username" required value={draft.username}
+          <input style={input} placeholder={t(language, 'username')} required value={draft.username}
             onChange={e => setDraft(d => ({ ...d, username: e.target.value }))} />
-          <input style={input} placeholder="Name" value={draft.name}
+          <input style={input} placeholder={t(language, 'name')} value={draft.name}
             onChange={e => setDraft(d => ({ ...d, name: e.target.value }))} />
           <select style={input} value={draft.role} onChange={e => setDraft(d => ({ ...d, role: e.target.value }))}>
-            {availableRoles.map(role => <option key={role} value={role}>{ROLE_LABELS[role]}</option>)}
+            {availableRoles.map(role => <option key={role} value={role}>{roleLabel(role, language)}</option>)}
           </select>
-          <input style={input} type="password" placeholder="Temporary password" required value={draft.password}
+          <input style={input} type="password" placeholder={t(language, 'temporaryPassword')} required value={draft.password}
             onChange={e => setDraft(d => ({ ...d, password: e.target.value }))} />
           <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, color: THEME.text }}>
             <input type="checkbox" checked={draft.mustChangePassword}
               onChange={e => setDraft(d => ({ ...d, mustChangePassword: e.target.checked }))} />
-            Require password change
+            {t(language, 'requirePasswordChange')}
           </label>
         </div>
         <button type="submit" disabled={saving} style={{
@@ -269,7 +303,7 @@ function UsersPanel({ currentUser, sessionRoles }) {
           border: 'none', borderRadius: 8, fontSize: 14, fontWeight: 600, cursor: 'pointer',
           opacity: saving ? 0.6 : 1,
         }}>
-          {saving ? 'Adding...' : 'Add user'}
+          {saving ? t(language, 'adding') : t(language, 'addUser')}
         </button>
         {error && <p style={{ fontSize: 12.5, color: THEME.danger, marginTop: 10 }}>{error}</p>}
         {message && <p style={{ fontSize: 12.5, color: THEME.success, marginTop: 10 }}>{message}</p>}
@@ -279,7 +313,7 @@ function UsersPanel({ currentUser, sessionRoles }) {
         <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13.5 }}>
           <thead>
             <tr style={{ background: THEME.surfaceAlt, color: THEME.textMuted, fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-              {['User', 'Role', 'Status', 'Actions'].map(h => (
+              {[t(language, 'user'), t(language, 'role'), t(language, 'status'), t(language, 'actions')].map(h => (
                 <th key={h} style={{ textAlign: 'left', padding: '10px 14px', fontWeight: 700 }}>{h}</th>
               ))}
             </tr>
@@ -298,12 +332,12 @@ function UsersPanel({ currentUser, sessionRoles }) {
                     disabled={user.id === currentUser?.id}
                     onChange={e => patchUser(user.id, { role: e.target.value })}
                   >
-                    {availableRoles.map(role => <option key={role} value={role}>{ROLE_LABELS[role]}</option>)}
+                    {availableRoles.map(role => <option key={role} value={role}>{roleLabel(role, language)}</option>)}
                   </select>
                 </td>
                 <td style={{ padding: '10px 14px', color: user.active ? THEME.success : THEME.danger, fontWeight: 600 }}>
-                  {user.active ? 'Active' : 'Inactive'}
-                  {user.mustChangePassword && <div style={{ fontSize: 11.5, color: THEME.textMuted }}>Password change required</div>}
+                  {user.active ? t(language, 'active') : t(language, 'inactive')}
+                  {user.mustChangePassword && <div style={{ fontSize: 11.5, color: THEME.textMuted }}>{t(language, 'passwordChangeRequired')}</div>}
                 </td>
                 <td style={{ padding: '10px 14px' }}>
                   <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
@@ -311,7 +345,7 @@ function UsersPanel({ currentUser, sessionRoles }) {
                       onClick={() => resetPassword(user)}
                       style={{ background: 'transparent', border: `1px solid ${THEME.border}`, borderRadius: 8, padding: '6px 8px', cursor: 'pointer', color: THEME.text }}
                     >
-                      Reset password
+                      {t(language, 'resetPassword')}
                     </button>
                     <button
                       disabled={user.id === currentUser?.id}
@@ -323,7 +357,7 @@ function UsersPanel({ currentUser, sessionRoles }) {
                         opacity: user.id === currentUser?.id ? 0.5 : 1,
                       }}
                     >
-                      {user.active ? 'Deactivate' : 'Activate'}
+                      {user.active ? t(language, 'deactivate') : t(language, 'activate')}
                     </button>
                   </div>
                 </td>
@@ -354,7 +388,7 @@ function pieceSummary(p) {
   return { label: def?.label ?? p.type, detail: parts.join('  ·  ') }
 }
 
-function OrderDetail({ order, rateCard, onBack, onSaved, permissions, currentUser }) {
+function OrderDetail({ order, rateCard, onBack, onSaved, permissions, currentUser, language }) {
   const [draft, setDraft] = useState({
     status: order.status,
     costing: { manufacturerCost: 0, freightCost: 0, otherCost: 0, ...order.costing },
@@ -404,7 +438,7 @@ function OrderDetail({ order, rateCard, onBack, onSaved, permissions, currentUse
         background: 'transparent', border: 'none', color: THEME.accent, fontSize: 13,
         cursor: 'pointer', padding: 0, marginBottom: 14, fontWeight: 600,
       }}>
-        ← All orders
+        ← {t(language, 'allOrders')}
       </button>
 
       <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', marginBottom: 14 }}>
@@ -434,15 +468,28 @@ function OrderDetail({ order, rateCard, onBack, onSaved, permissions, currentUse
             {(order.design?.pieces ?? []).map((p, i) => {
               const s = pieceSummary(p)
               return (
-                <div key={i} style={{ borderBottom: i < order.design.pieces.length - 1 ? `1px solid ${THEME.border}` : 'none', paddingBottom: 8 }}>
-                  <div style={{ fontSize: 13.5, fontWeight: 700, color: THEME.text }}>{s.label}</div>
-                  <div style={{ fontSize: 12, color: THEME.textMuted, lineHeight: 1.5 }}>{s.detail}</div>
+                <div key={i} style={{
+                  display: 'flex', gap: 10,
+                  borderBottom: i < order.design.pieces.length - 1 ? `1px solid ${THEME.border}` : 'none', paddingBottom: 8,
+                }}>
+                  {p.sourcePhotoUrl && (
+                    <img
+                      src={p.sourcePhotoUrl}
+                      alt={t(language, 'referencePhoto')}
+                      title={t(language, 'referencePhoto')}
+                      style={{ width: 56, height: 56, objectFit: 'cover', borderRadius: 8, flexShrink: 0, border: `1px solid ${THEME.border}` }}
+                    />
+                  )}
+                  <div>
+                    <div style={{ fontSize: 13.5, fontWeight: 700, color: THEME.text }}>{s.label}</div>
+                    <div style={{ fontSize: 12, color: THEME.textMuted, lineHeight: 1.5 }}>{s.detail}</div>
+                  </div>
                 </div>
               )
             })}
           </div>
           <div style={{ marginTop: 12, fontSize: 13, color: THEME.textMuted }}>
-            Customer-facing estimate at submission:{' '}
+            {t(language, 'customerEstimate')}:{' '}
             <strong style={{ color: THEME.success }}>{formatUSD(estimate)}</strong>
           </div>
         </div>
@@ -452,18 +499,18 @@ function OrderDetail({ order, rateCard, onBack, onSaved, permissions, currentUse
         <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
           {canEditMoney && <div style={card}>
             <h3 style={{ fontSize: 13, color: THEME.accent, textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 10 }}>
-              Costing
+              {t(language, 'costing')}
             </h3>
             <div style={{ display: 'flex', gap: 8 }}>
-              {costField('manufacturerCost', 'Manufacturer')}
-              {costField('freightCost', 'Freight')}
-              {costField('otherCost', 'Other')}
+              {costField('manufacturerCost', t(language, 'manufacturer'))}
+              {costField('freightCost', t(language, 'freight'))}
+              {costField('otherCost', t(language, 'other'))}
             </div>
           </div>}
 
           {canEditMoney && <div style={card}>
             <h3 style={{ fontSize: 13, color: THEME.accent, textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 10 }}>
-              Discount & quote
+              {t(language, 'discountAndQuote')}
             </h3>
             <div style={{ display: 'flex', gap: 8, marginBottom: 10 }}>
               <select
@@ -483,18 +530,18 @@ function OrderDetail({ order, rateCard, onBack, onSaved, permissions, currentUse
               />
             </div>
             <div style={{ fontSize: 12.5, color: THEME.textMuted, marginBottom: 8 }}>
-              Suggested quote (estimate × margin − discount): <strong>{formatUSD(suggested)}</strong>
+              {t(language, 'suggestedQuote')}: <strong>{formatUSD(suggested)}</strong>
               {draft.quotedPrice != null && (
                 <button
                   onClick={() => setDraft(d => ({ ...d, quotedPrice: null }))}
                   style={{ marginLeft: 8, background: 'transparent', border: 'none', color: THEME.accent, cursor: 'pointer', fontSize: 12 }}
                 >
-                  use suggested
+                  {t(language, 'useSuggested')}
                 </button>
               )}
             </div>
             <label>
-              <div style={{ fontSize: 10.5, color: THEME.textMuted, textTransform: 'uppercase', marginBottom: 4 }}>Quoted price</div>
+              <div style={{ fontSize: 10.5, color: THEME.textMuted, textTransform: 'uppercase', marginBottom: 4 }}>{t(language, 'quotedPrice')}</div>
               <input
                 style={input}
                 type="number"
@@ -504,13 +551,13 @@ function OrderDetail({ order, rateCard, onBack, onSaved, permissions, currentUse
               />
             </label>
             <div style={{ marginTop: 10, fontSize: 13, color: margin >= 0 ? THEME.success : THEME.danger, fontWeight: 600 }}>
-              Margin vs. costs: {formatUSD(margin)}{totalCost === 0 ? ' (no costs entered yet)' : ''}
+              {t(language, 'marginVsCosts')}: {formatUSD(margin)}{totalCost === 0 ? ` (${t(language, 'noCosts')})` : ''}
             </div>
           </div>}
 
           <div style={card}>
             <h3 style={{ fontSize: 13, color: THEME.accent, textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 10 }}>
-              Status & notes
+              {t(language, 'statusAndNotes')}
             </h3>
             <select
               style={{ ...input, marginBottom: 10 }}
@@ -522,7 +569,7 @@ function OrderDetail({ order, rateCard, onBack, onSaved, permissions, currentUse
             <textarea
               style={{ ...input, resize: 'vertical' }}
               rows={3}
-              placeholder="Internal notes (never shown to the customer)"
+              placeholder={t(language, 'internalNotes')}
               value={draft.internalNotes}
               onChange={e => setDraft(d => ({ ...d, internalNotes: e.target.value }))}
             />
@@ -533,7 +580,7 @@ function OrderDetail({ order, rateCard, onBack, onSaved, permissions, currentUse
             borderRadius: 8, fontSize: 14, fontWeight: 600, cursor: 'pointer',
             opacity: saving ? 0.6 : 1,
           }}>
-            {saving ? 'Saving…' : 'Save order'}
+            {saving ? t(language, 'saving') : t(language, 'saveOrder')}
           </button>
         </div>
         )}
@@ -542,9 +589,56 @@ function OrderDetail({ order, rateCard, onBack, onSaved, permissions, currentUse
   )
 }
 
+// ── Beta features ──────────────────────────────────────────────────────────────
+
+function FeaturesPanel({ features, onSaved, language }) {
+  const [enabled, setEnabled] = useState(Boolean(features.autobuildEnabled))
+  const [saving, setSaving] = useState(false)
+  const [savedAt, setSavedAt] = useState(null)
+
+  const save = async () => {
+    setSaving(true)
+    try {
+      const saved = await saveFeatures({ autobuildEnabled: enabled })
+      onSaved(saved)
+      setSavedAt(Date.now())
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  return (
+    <div style={{ ...card, marginBottom: 14 }}>
+      <h3 style={{ fontSize: 13, color: THEME.accent, textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 12 }}>
+        {t(language, 'betaFeatures')}
+      </h3>
+      <label style={{ display: 'flex', alignItems: 'start', gap: 10, cursor: 'pointer' }}>
+        <input type="checkbox" checked={enabled} onChange={e => setEnabled(e.target.checked)} style={{ marginTop: 3 }} />
+        <span>
+          <span style={{ fontSize: 13.5, color: THEME.text, fontWeight: 600, display: 'block' }}>
+            {t(language, 'autobuildFeatureLabel')}
+          </span>
+          <span style={{ fontSize: 12, color: THEME.textMuted, lineHeight: 1.5 }}>
+            {t(language, 'autobuildFeatureDesc')}
+          </span>
+        </span>
+      </label>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginTop: 12 }}>
+        <button onClick={save} disabled={saving} style={{
+          padding: '8px 18px', background: THEME.accent, color: '#fff', border: 'none',
+          borderRadius: 8, fontSize: 13.5, fontWeight: 600, cursor: 'pointer', opacity: saving ? 0.6 : 1,
+        }}>
+          {saving ? t(language, 'saving') : t(language, 'saveFeatures')}
+        </button>
+        {savedAt && <span style={{ fontSize: 13, color: THEME.success }}>{t(language, 'featuresSaved')}</span>}
+      </div>
+    </div>
+  )
+}
+
 // ── Rate card editor ──────────────────────────────────────────────────────────
 
-function RateCardEditor({ rateCard, onSaved }) {
+function RateCardEditor({ rateCard, onSaved, language }) {
   const [draft, setDraft] = useState(() => normalizeRateCard(rateCard))
   const [rateUnit, setRateUnit] = useState('sqm')
   const [saving, setSaving] = useState(false)
@@ -587,9 +681,9 @@ function RateCardEditor({ rateCard, onSaved }) {
   const canonicalRate = (value) => rateUnit === 'sqft' ? Number(value) * SQ_FT_PER_SQ_M : Number(value)
   const rateLabel = rateUnit === 'sqft' ? '$/ft²' : '$/m²'
   const partLabels = {
-    doorPanel: 'Door panel · 18mm',
-    cabinetBody: 'Cabinet body · 18mm',
-    backboard: 'Backboard · 9mm',
+    doorPanel: t(language, 'doorPanel18mm'),
+    cabinetBody: t(language, 'cabinetBody18mm'),
+    backboard: t(language, 'backboard9mm'),
   }
   const rateField = (familyKey, partKey) =>
     numField(
@@ -612,7 +706,7 @@ function RateCardEditor({ rateCard, onSaved }) {
     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14, alignItems: 'start' }}>
       <div style={{ gridColumn: '1 / -1', display: 'flex', alignItems: 'center', gap: 10 }}>
         <span style={{ fontSize: 12, color: THEME.textMuted, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-          Pricing units
+          {t(language, 'pricingUnits')}
         </span>
         {[
           ['sqm', '$/m²'],
@@ -641,7 +735,7 @@ function RateCardEditor({ rateCard, onSaved }) {
         ])
       )}
 
-      {group('Piece type multipliers', Object.keys(draft.typeMultipliers).map(k =>
+      {group(t(language, 'pieceTypeMultipliers'), Object.keys(draft.typeMultipliers).map(k =>
         numField(
           PIECE_DEFS[k]?.label ?? k,
           draft.typeMultipliers[k],
@@ -650,7 +744,7 @@ function RateCardEditor({ rateCard, onSaved }) {
         )
       ))}
 
-      {group('Front style adders (fraction of cost)', Object.keys(draft.frontAdders).map(k =>
+      {group(t(language, 'frontStyleAdders'), Object.keys(draft.frontAdders).map(k =>
         numField(
           FRONT_STYLE_LABELS[k] ?? k,
           draft.frontAdders[k],
@@ -659,13 +753,13 @@ function RateCardEditor({ rateCard, onSaved }) {
         )
       ))}
 
-      {group('Freight, floors & margin', [
-        numField('Countertop adder', draft.countertopAdder, v => setDraft(d => ({ ...d, countertopAdder: v })), 0.01),
-        numField('Freight $/ft³', draft.freightRate, v => setDraft(d => ({ ...d, freightRate: v }))),
-        numField('Base freight $', draft.baseFreight, v => setDraft(d => ({ ...d, baseFreight: v }))),
-        numField('Min manufacturer $', draft.minManufacturerCost, v => setDraft(d => ({ ...d, minManufacturerCost: v }))),
-        numField('Min freight $', draft.minFreightCost, v => setDraft(d => ({ ...d, minFreightCost: v }))),
-        numField('Quote margin (×)', draft.margin, v => setDraft(d => ({ ...d, margin: v })), 0.05),
+      {group(t(language, 'freightFloorsMargin'), [
+        numField(t(language, 'countertopAdder'), draft.countertopAdder, v => setDraft(d => ({ ...d, countertopAdder: v })), 0.01),
+        numField(t(language, 'freightRate'), draft.freightRate, v => setDraft(d => ({ ...d, freightRate: v }))),
+        numField(t(language, 'baseFreight'), draft.baseFreight, v => setDraft(d => ({ ...d, baseFreight: v }))),
+        numField(t(language, 'minManufacturer'), draft.minManufacturerCost, v => setDraft(d => ({ ...d, minManufacturerCost: v }))),
+        numField(t(language, 'minFreight'), draft.minFreightCost, v => setDraft(d => ({ ...d, minFreightCost: v }))),
+        numField(t(language, 'quoteMargin'), draft.margin, v => setDraft(d => ({ ...d, margin: v })), 0.05),
       ])}
 
       <div style={{ gridColumn: '1 / -1', display: 'flex', alignItems: 'center', gap: 12 }}>
@@ -673,11 +767,11 @@ function RateCardEditor({ rateCard, onSaved }) {
           padding: '10px 24px', background: THEME.accent, color: '#fff', border: 'none',
           borderRadius: 8, fontSize: 14, fontWeight: 600, cursor: 'pointer', opacity: saving ? 0.6 : 1,
         }}>
-          {saving ? 'Saving…' : 'Save rate card'}
+          {saving ? t(language, 'saving') : t(language, 'saveRateCard')}
         </button>
-        {savedAt && <span style={{ fontSize: 13, color: THEME.success }}>Saved — live estimates now use these rates.</span>}
+        {savedAt && <span style={{ fontSize: 13, color: THEME.success }}>{t(language, 'rateCardSaved')}</span>}
         <span style={{ fontSize: 12, color: THEME.textMuted }}>
-          These rates drive the customer configurator's live estimates.
+          {t(language, 'rateCardUsage')}
         </span>
       </div>
     </div>
@@ -688,13 +782,24 @@ function RateCardEditor({ rateCard, onSaved }) {
 
 export default function AdminApp() {
   const [authed, setAuthed] = useState(!!getAdminToken())
+  const [language, setLanguage] = useState(getAdminLanguage())
   const [tab, setTab] = useState('orders')
   const [orders, setOrders] = useState([])
   const [openOrderId, setOpenOrderId] = useState(null)
   const [statusFilter, setStatusFilter] = useState('all')
   const [rateCard, setRateCard] = useState(DEFAULT_RATE_CARD)
+  const [features, setFeatures] = useState({ autobuildEnabled: false })
   const [defaultPassword, setDefaultPassword] = useState(false)
   const [session, setSession] = useState(null)
+
+  const changeLanguage = (nextLanguage) => {
+    setAdminLanguage(nextLanguage)
+    setLanguage(nextLanguage)
+  }
+
+  useEffect(() => {
+    document.documentElement.lang = language === 'zh' ? 'zh-CN' : 'en'
+  }, [language])
 
   useEffect(() => {
     if (!authed) return
@@ -714,11 +819,18 @@ export default function AdminApp() {
       }
     }).catch(() => {})
     fetchRateCard().then(card => { if (card && !cancelled) setRateCard(normalizeRateCard(card)) })
+    fetchFeatures().then(f => { if (!cancelled) setFeatures(f) })
     return () => { cancelled = true }
   }, [authed])
 
   if (!authed) {
-    return <Login onLoggedIn={nextSession => { setSession(nextSession); setDefaultPassword(Boolean(nextSession.defaultPassword)); setAuthed(true) }} />
+    return (
+      <Login
+        language={language}
+        onLanguageChange={changeLanguage}
+        onLoggedIn={nextSession => { setSession(nextSession); setDefaultPassword(Boolean(nextSession.defaultPassword)); setAuthed(true) }}
+      />
+    )
   }
 
   const openOrder = orders.find(o => o.id === openOrderId)
@@ -726,10 +838,10 @@ export default function AdminApp() {
   const permissions = session?.permissions ?? {}
   const currentUser = session?.user
   const tabs = [
-    permissions.readOrders && ['orders', 'Orders'],
-    permissions.editPricing && ['pricing', 'Pricing'],
-    permissions.manageUsers && ['users', 'Users'],
-    ['security', 'Security'],
+    permissions.readOrders && ['orders', t(language, 'orders')],
+    permissions.editPricing && ['pricing', t(language, 'pricing')],
+    permissions.manageUsers && ['users', t(language, 'users')],
+    ['security', t(language, 'security')],
   ].filter(Boolean)
 
   return (
@@ -739,7 +851,7 @@ export default function AdminApp() {
         display: 'flex', alignItems: 'center', gap: 20, padding: '0 24px', height: 56,
         background: THEME.surface, borderBottom: `1px solid ${THEME.border}`,
       }}>
-        <span style={{ fontWeight: 700, fontSize: 15, color: THEME.text }}>Admin</span>
+        <span style={{ fontWeight: 700, fontSize: 15, color: THEME.text }}>{t(language, 'admin')}</span>
         {tabs.map(([key, label]) => (
           <button
             key={key}
@@ -755,29 +867,31 @@ export default function AdminApp() {
           </button>
         ))}
         <div style={{ flex: 1 }} />
+        <LanguageToggle language={language} onChange={changeLanguage} />
         {currentUser && (
           <span style={{ fontSize: 12.5, color: THEME.textMuted }}>
-            {currentUser.name} Â· {ROLE_LABELS[currentUser.role] ?? currentUser.role}
+            {currentUser.name} · {roleLabel(currentUser.role, language)}
           </span>
         )}
         <button
           onClick={() => { clearAdminToken(); setSession(null); setAuthed(false) }}
           style={{ background: 'transparent', border: 'none', color: THEME.textMuted, fontSize: 13, cursor: 'pointer' }}
         >
-          Sign out
+          {t(language, 'signOut')}
         </button>
       </div>
 
       <div style={{ maxWidth: 1080, margin: '0 auto', padding: 24 }}>
         {defaultPassword && tab !== 'security' && (
           <div style={{ ...card, marginBottom: 14, borderColor: 'rgba(180,55,55,0.35)', color: THEME.danger, fontSize: 13.5 }}>
-            The default admin password is still active. Open Security and change it before using real customer data.
+            {t(language, 'defaultPasswordBanner')}
           </div>
         )}
 
         {tab === 'security' && (
           <PasswordPanel
             defaultPassword={defaultPassword}
+            language={language}
             onChanged={() => setDefaultPassword(false)}
           />
         )}
@@ -786,15 +900,20 @@ export default function AdminApp() {
           <UsersPanel
             currentUser={currentUser}
             sessionRoles={session?.roles}
+            language={language}
           />
         )}
 
         {tab === 'pricing' && permissions.editPricing && (
-          <RateCardEditor
-            key={JSON.stringify(rateCard.partRates)}
-            rateCard={rateCard}
-            onSaved={setRateCard}
-          />
+          <>
+            <FeaturesPanel features={features} language={language} onSaved={setFeatures} />
+            <RateCardEditor
+              key={JSON.stringify(rateCard.partRates)}
+              rateCard={rateCard}
+              language={language}
+              onSaved={setRateCard}
+            />
+          </>
         )}
 
         {tab === 'orders' && openOrder && (
@@ -803,6 +922,7 @@ export default function AdminApp() {
             rateCard={rateCard}
             permissions={permissions}
             currentUser={currentUser}
+            language={language}
             onBack={() => setOpenOrderId(null)}
             onSaved={updated => {
               setOrders(prev => prev.map(o => o.id === updated.id ? updated : o))
@@ -815,24 +935,24 @@ export default function AdminApp() {
           <>
             <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14 }}>
               <h2 style={{ fontSize: 17, color: THEME.text, flex: 1 }}>
-                Orders <span style={{ color: THEME.textMuted, fontWeight: 400 }}>({visible.length})</span>
+                {t(language, 'orders')} <span style={{ color: THEME.textMuted, fontWeight: 400 }}>({visible.length})</span>
               </h2>
               <select style={{ ...input, width: 170 }} value={statusFilter} onChange={e => setStatusFilter(e.target.value)}>
-                <option value="all">All statuses</option>
+                <option value="all">{t(language, 'allStatuses')}</option>
                 {STATUSES.map(s => <option key={s} value={s}>{s.replace('_', ' ')}</option>)}
               </select>
             </div>
 
             {visible.length === 0 ? (
               <div style={{ ...card, color: THEME.textMuted, fontSize: 14 }}>
-                No orders yet. Quote requests submitted from the configurator will appear here.
+                {t(language, 'noOrders')}
               </div>
             ) : (
               <div style={{ ...card, padding: 0, overflow: 'hidden' }}>
                 <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13.5 }}>
                   <thead>
                     <tr style={{ background: THEME.surfaceAlt, color: THEME.textMuted, fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                      {['Date', 'Customer', 'Pieces', 'Estimate', 'Quoted', 'Status'].map(h => (
+                      {[t(language, 'date'), t(language, 'customer'), t(language, 'pieces'), t(language, 'estimate'), t(language, 'quoted'), t(language, 'status')].map(h => (
                         <th key={h} style={{ textAlign: 'left', padding: '10px 14px', fontWeight: 700 }}>{h}</th>
                       ))}
                     </tr>

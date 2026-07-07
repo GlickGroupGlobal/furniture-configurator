@@ -19,6 +19,11 @@ const DEFAULT_DB = {
     mustChangePassword: true,
     users: [],
   },
+  features: {
+    // Off by default — the photo-autobuild feature is gated behind this
+    // until an admin explicitly turns it on (Admin > Pricing > Beta features).
+    autobuildEnabled: false,
+  },
 }
 
 let cache = null
@@ -32,6 +37,9 @@ function migrate(raw) {
       passwordHash: raw?.admin?.passwordHash ?? null,
       mustChangePassword: Boolean(raw?.admin?.mustChangePassword),
       users: Array.isArray(raw?.admin?.users) ? raw.admin.users : [],
+    },
+    features: {
+      autobuildEnabled: Boolean(raw?.features?.autobuildEnabled),
     },
   }
 }

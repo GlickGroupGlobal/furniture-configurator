@@ -17,6 +17,24 @@ export async function fetchRateCard() {
   }
 }
 
+/** Public feature flags (e.g. photo autobuild). Fails closed (all false) if unreachable. */
+export async function fetchFeatures() {
+  try {
+    return await json(await fetch('/api/features'))
+  } catch {
+    return { autobuildEnabled: false }
+  }
+}
+
+/** Analyze a customer's reference photo (base64 data URL) into a piece config. */
+export async function analyzePiecePhoto(imageDataUrl) {
+  return json(await fetch('/api/vision/analyze-piece', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ image: imageDataUrl }),
+  }))
+}
+
 /** Submit a customer quote request. Throws if the server is unreachable. */
 export async function submitOrder(order) {
   return json(await fetch('/api/orders', {
@@ -29,6 +47,15 @@ export async function submitOrder(order) {
 // ── Admin (token-authenticated) ──────────────────────────────────────────────
 
 const TOKEN_KEY = 'admin_token'
+const LANGUAGE_KEY = 'admin_language'
+
+export function getAdminLanguage() {
+  return localStorage.getItem(LANGUAGE_KEY) || 'en'
+}
+
+export function setAdminLanguage(language) {
+  localStorage.setItem(LANGUAGE_KEY, language === 'zh' ? 'zh' : 'en')
+}
 
 export function getAdminToken() {
   return localStorage.getItem(TOKEN_KEY)
@@ -38,10 +65,15 @@ export function clearAdminToken() {
   localStorage.removeItem(TOKEN_KEY)
 }
 
+function languageHeaders() {
+  const language = getAdminLanguage()
+  return { 'Accept-Language': language, 'X-Language': language }
+}
+
 export async function adminLogin(username, password) {
   const result = await json(await fetch('/api/admin/login', {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'application/json', ...languageHeaders() },
     body: JSON.stringify({ username, password }),
   }))
   localStorage.setItem(TOKEN_KEY, result.token)
@@ -49,7 +81,7 @@ export async function adminLogin(username, password) {
 }
 
 function authHeaders() {
-  return { 'Content-Type': 'application/json', Authorization: `Bearer ${getAdminToken()}` }
+  return { 'Content-Type': 'application/json', Authorization: `Bearer ${getAdminToken()}`, ...languageHeaders() }
 }
 
 export async function fetchOrders() {
@@ -77,6 +109,14 @@ export async function saveRateCard(rateCard) {
     method: 'PUT',
     headers: authHeaders(),
     body: JSON.stringify(rateCard),
+  }))
+}
+
+export async function saveFeatures(features) {
+  return json(await fetch('/api/features', {
+    method: 'PUT',
+    headers: authHeaders(),
+    body: JSON.stringify(features),
   }))
 }
 
