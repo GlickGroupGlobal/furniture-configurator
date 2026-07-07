@@ -7,7 +7,7 @@ import { RoomDimensionLabels } from './DimensionLabels'
 import { applySnap }        from '../snap'
 import { resolveCollision } from '../collision'
 
-export default function Scene({ room, pieces, selectedId, setSelectedId, updatePiece, viewMode }) {
+export default function Scene({ room, pieces, selectedId, setSelectedId, updatePiece, viewMode, unitSystem = 'imperial', showRoomDimensions = false }) {
   const dragging  = useRef(null)
   const roomRef   = useRef(room)
   const piecesRef = useRef(pieces)
@@ -41,14 +41,16 @@ export default function Scene({ room, pieces, selectedId, setSelectedId, updateP
     const draggingPiece = piecesRef.current.find(p => p.id === dragging.current.id)
     if (!draggingPiece) return
 
-    const { x: snapX, z: snapZ, elevation } = applySnap(
+    const { x: snapX, z: snapZ, elevation, snappedX, snappedZ } = applySnap(
       draggingPiece, rawX, rawZ, roomRef.current, piecesRef.current
     )
-    // Resolve collisions against other pieces (uses updated elevation from snap)
+    // Resolve collisions against other pieces (uses updated elevation from snap);
+    // snapped axes are preserved so collision sliding can't undo a wall/neighbor snap
     const { x, z } = resolveCollision(
       { ...draggingPiece, elevation },
       snapX, snapZ,
-      piecesRef.current
+      piecesRef.current,
+      snappedX, snappedZ
     )
     updatePiece(dragging.current.id, { x, z, elevation })
   }, [updatePiece])
@@ -120,7 +122,7 @@ export default function Scene({ room, pieces, selectedId, setSelectedId, updateP
       />
 
       <Room width={room.width} length={room.length} height={room.height} />
-      <RoomDimensionLabels room={room} />
+      {showRoomDimensions && <RoomDimensionLabels room={room} unitSystem={unitSystem} />}
 
       <ContactShadows
         position={[0, 0.002, 0]}
@@ -136,6 +138,7 @@ export default function Scene({ room, pieces, selectedId, setSelectedId, updateP
           piece={piece}
           selected={piece.id === selectedId}
           onPointerDown={onPiecePointerDown}
+          unitSystem={unitSystem}
         />
       ))}
 

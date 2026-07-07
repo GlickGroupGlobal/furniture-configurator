@@ -1,4 +1,4 @@
-import { useMemo } from 'react'
+import { useMemo, useState, useEffect } from 'react'
 import * as THREE from 'three'
 
 // Procedural canvas textures — avoids bundling real image assets for a local
@@ -100,11 +100,52 @@ export function getFabricBaseTexture(hex) {
  * base/repeat combination. Use inside a piece component so each mesh face
  * tiles proportionally to its own real-world size.
  */
-export function useTiledTexture(baseTexture, repeatX, repeatY) {
+export function useTiledTexture(baseTexture, repeatX, repeatY, version = 0) {
   return useMemo(() => {
     const tex = baseTexture.clone()
     tex.needsUpdate = true
     tex.repeat.set(Math.max(0.5, repeatX), Math.max(0.5, repeatY))
+    // version marks which load-state of the base this clone captured — a bump
+    // after the image finishes loading forces a fresh clone with pixels in it
+    tex.userData.baseVersion = version
     return tex
-  }, [baseTexture, repeatX, repeatY])
+  }, [baseTexture, repeatX, repeatY, version])
+}
+
+// ── Image-based finish textures (manufacturer swatch photos) ────────────────
+
+const imageCache = new Map() // url -> { texture, loaded, listeners: Set }
+
+function getImageBaseTexture(url) {
+  if (imageCache.has(url)) return imageCache.get(url)
+  const entry = { texture: null, loaded: false, listeners: new Set() }
+  entry.texture = new THREE.TextureLoader().load(url, () => {
+    entry.loaded = true
+    entry.listeners.forEach(fn => fn())
+    entry.listeners.clear()
+  })
+  entry.texture.colorSpace = THREE.SRGBColorSpace
+  entry.texture.wrapS = entry.texture.wrapT = THREE.RepeatWrapping
+  imageCache.set(url, entry)
+  return entry
+}
+
+/**
+ * Tiled texture for a catalog finish ({image} photo swatch or {color}
+ * procedural fallback). Non-suspending: photo swatches pop in when loaded
+ * (a version bump re-clones the texture so late-loading images propagate).
+ */
+export function useFinishTexture(finish, repeatX, repeatY) {
+  const [version, setVersion] = useState(0)
+  const entry = finish?.image ? getImageBaseTexture(finish.image) : null
+
+  useEffect(() => {
+    if (!entry || entry.loaded) return
+    const bump = () => setVersion(v => v + 1)
+    entry.listeners.add(bump)
+    return () => entry.listeners.delete(bump)
+  }, [entry])
+
+  const base = entry ? entry.texture : getWoodBaseTexture(finish?.color ?? '#c8a96e')
+  return useTiledTexture(base, repeatX, repeatY, version)
 }

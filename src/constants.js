@@ -1,3 +1,7 @@
+// Piece type definitions. Material families/finishes live in materials.js.
+
+// Legacy solid-wood palette — still used by the room floor and the (hidden)
+// sofa's frame; customer-facing cabinet materials come from materials.js.
 export const MATERIALS = {
   solid_oak:     { label: 'Solid Oak',         color: '#c8a96e', roughness: 0.60 },
   solid_walnut:  { label: 'Solid Walnut',      color: '#5c3d2e', roughness: 0.65 },
@@ -5,8 +9,6 @@ export const MATERIALS = {
   painted_mdf:   { label: 'Painted MDF',       color: '#dce0e8', roughness: 0.88 },
 }
 
-// Upholstery is a separate material family from the wood/paint MATERIALS above —
-// used for sofa cushions/back, since a sofa isn't realistically "solid oak."
 export const UPHOLSTERY_MATERIALS = {
   linen_natural:        { label: 'Natural Linen',         color: '#e8e1d3', roughness: 0.95 },
   performance_charcoal: { label: 'Performance Charcoal',  color: '#3f3d3c', roughness: 0.92 },
@@ -14,25 +16,32 @@ export const UPHOLSTERY_MATERIALS = {
 }
 
 export const DEFAULT_UPHOLSTERY = 'linen_natural'
+export const DEFAULT_MATERIAL = 'solid_oak'
 
-export const DOOR_STYLE_LABELS = {
-  paneled: 'Paneled',
-  slab:    'Flat Slab',
+export const FRONT_STYLE_LABELS = {
+  none:    'Open (No Fronts)',
+  slab:    'Door Panels',
+  shaker:  'Door Panels',
+  glass:   'Glass',
   drawers: 'Drawers',
-  glass:   'Glass Front',
-  open:    'Open (No Door)',
 }
+
+export const DOOR_PROFILE_LABELS = {
+  mx1801: 'MX-1801 Flat Frame',
+  pf: 'PF Raised Frame',
+  bl5863: 'BL-5863 Beadboard',
+  mx1804: 'MX-1804 Narrow Raised',
+  bl22m13: 'BL22-M13 Fluted',
+  bl23m17: 'BL23-M17 Arched',
+  bl23m19: 'BL23-M19 French',
+}
+
+export const DEFAULT_DOOR_PROFILE = 'mx1801'
 
 export const HANDLE_STYLE_LABELS = {
   bar:  'Bar Pull',
   knob: 'Knob',
   none: 'None (Finger Groove)',
-}
-
-export const FRONT_STYLE_LABELS = {
-  paneled:      'Paneled',
-  slab:         'Flat Slab',
-  'open-shelf': 'Open Shelf',
 }
 
 export const LEG_STYLE_LABELS = {
@@ -46,22 +55,6 @@ export const TOP_EDGE_LABELS = {
   rounded: 'Rounded Edge',
 }
 
-export const ARM_STYLE_LABELS = {
-  track:  'Track Arm',
-  rolled: 'Rolled Arm',
-  none:   'Armless',
-}
-
-export const BACK_STYLE_LABELS = {
-  'cushion-back': 'Cushion Back',
-  'tight-back':   'Tight Back',
-}
-
-export const BACK_PANEL_LABELS = {
-  solid: 'Solid Back',
-  open:  'Open Back',
-}
-
 export const PIECE_DEFS = {
   lower_cabinet: {
     label: 'Lower Cabinet',
@@ -70,10 +63,10 @@ export const PIECE_DEFS = {
     minWidth: 1,   maxWidth: 8,
     minHeight: 2.5, maxHeight: 3.5,
     minDepth: 1.5,  maxDepth: 2.5,
-    doorStyleOptions: ['paneled', 'slab', 'drawers', 'open'],
-    defaultDoorStyle: 'paneled',
-    handleStyleOptions: ['bar', 'knob', 'none'],
-    defaultHandleStyle: 'bar',
+    cabinet: true,
+    toeKick: true,
+    frontStyles: ['none', 'slab', 'shaker', 'glass', 'drawers'],
+    canCountertop: true,
   },
   upper_cabinet: {
     label: 'Upper Cabinet',
@@ -82,10 +75,19 @@ export const PIECE_DEFS = {
     minWidth: 1,   maxWidth: 6,
     minHeight: 1.5, maxHeight: 3.5,
     minDepth: 0.75, maxDepth: 1.5,
-    doorStyleOptions: ['paneled', 'slab', 'glass', 'open'],
-    defaultDoorStyle: 'paneled',
-    handleStyleOptions: ['bar', 'knob', 'none'],
-    defaultHandleStyle: 'bar',
+    cabinet: true,
+    frontStyles: ['none', 'slab', 'shaker', 'glass'],
+  },
+  tall_closet: {
+    label: 'Full-Height Closet',
+    elevation: 0,
+    defaultWidth: 3, defaultHeight: 7.5, defaultDepth: 2,
+    minWidth: 1.5,  maxWidth: 10,
+    minHeight: 6,   maxHeight: 9,
+    minDepth: 1.5,  maxDepth: 2.5,
+    cabinet: true,
+    toeKick: true,
+    frontStyles: ['none', 'slab', 'shaker', 'glass', 'drawers'],
   },
   bar: {
     label: 'Bar',
@@ -94,10 +96,12 @@ export const PIECE_DEFS = {
     minWidth: 2,   maxWidth: 12,
     minHeight: 3,   maxHeight: 4,
     minDepth: 1.5,  maxDepth: 3.5,
-    frontStyleOptions: ['paneled', 'slab', 'open-shelf'],
-    defaultFrontStyle: 'paneled',
-    handleStyleOptions: ['bar', 'knob', 'none'],
-    defaultHandleStyle: 'bar',
+    cabinet: true,
+    toeKick: true,
+    barOverhang: true,          // counter overhangs the customer side
+    frontStyles: ['none', 'slab', 'shaker'],
+    canCountertop: true,
+    defaultCountertop: true,    // a bar isn't a bar without a top
     defaultHasFootrest: true,
   },
   table: {
@@ -112,8 +116,19 @@ export const PIECE_DEFS = {
     topEdgeOptions: ['square', 'rounded'],
     defaultTopEdge: 'square',
   },
+  shelving: {
+    label: 'Shelving',
+    elevation: 0,
+    defaultWidth: 3, defaultHeight: 7, defaultDepth: 1,
+    minWidth: 1.5,  maxWidth: 8,
+    minHeight: 3,   maxHeight: 9,
+    minDepth: 0.75, maxDepth: 2,
+    backPanelOptions: ['solid', 'open'],
+    defaultBackPanel: 'solid',
+  },
   sofa: {
     label: 'Sofa',
+    hidden: true,   // out of the palette for now — component kept for later
     elevation: 0,
     defaultWidth: 7, defaultHeight: 2.75, defaultDepth: 3,
     minWidth: 4,   maxWidth: 12,
@@ -124,18 +139,4 @@ export const PIECE_DEFS = {
     backStyleOptions: ['cushion-back', 'tight-back'],
     defaultBackStyle: 'cushion-back',
   },
-  shelving: {
-    label: 'Shelving',
-    elevation: 0,
-    defaultWidth: 3, defaultHeight: 7, defaultDepth: 1,
-    minWidth: 1.5,  maxWidth: 8,
-    minHeight: 3,   maxHeight: 9,
-    minDepth: 0.75, maxDepth: 2,
-    backPanelOptions: ['solid', 'open'],
-    defaultBackPanel: 'solid',
-    doorStyleOptions: ['open', 'glass', 'solid'],
-    defaultDoorStyle: 'open',
-  },
 }
-
-export const DEFAULT_MATERIAL = 'solid_oak'

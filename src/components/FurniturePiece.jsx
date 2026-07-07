@@ -1,21 +1,20 @@
-import LowerCabinet from './pieces/LowerCabinet'
-import UpperCabinet from './pieces/UpperCabinet'
-import Bar         from './pieces/Bar'
-import Table       from './pieces/Table'
-import Sofa        from './pieces/Sofa'
-import Shelving    from './pieces/Shelving'
+import Cabinet  from './pieces/Cabinet'
+import Table    from './pieces/Table'
+import Sofa     from './pieces/Sofa'
+import Shelving from './pieces/Shelving'
 import { PieceDimensionLabel } from './DimensionLabels'
 
 const GEOMETRIES = {
-  lower_cabinet: LowerCabinet,
-  upper_cabinet: UpperCabinet,
-  bar:           Bar,
+  lower_cabinet: Cabinet,
+  upper_cabinet: Cabinet,
+  tall_closet:   Cabinet,
+  bar:           Cabinet,
   table:         Table,
   sofa:          Sofa,
   shelving:      Shelving,
 }
 
-export default function FurniturePiece({ piece, selected, onPointerDown }) {
+export default function FurniturePiece({ piece, selected, onPointerDown, unitSystem = 'imperial' }) {
   const Geo = GEOMETRIES[piece.type]
   if (!Geo) return null
 
@@ -24,10 +23,17 @@ export default function FurniturePiece({ piece, selected, onPointerDown }) {
       position={[piece.x, piece.elevation ?? 0, piece.z]}
       onPointerDown={e => onPointerDown(e, piece)}
     >
-      {/* Spread so every style field (doorStyle, handleStyle, legStyle, ...) reaches
-          the piece component without enumerating each one here. */}
+      {/* Spread so every config field (frontStyle, bodyFinish, countertop, ...)
+          reaches the geometry component without enumerating each one here. */}
       <Geo {...piece} selected={selected} />
-      <PieceDimensionLabel width={piece.width} height={piece.height} depth={piece.depth} />
+      {selected && (
+        <PieceDimensionLabel
+          width={piece.width}
+          height={piece.height}
+          depth={piece.depth}
+          unitSystem={unitSystem}
+        />
+      )}
     </group>
   )
 }

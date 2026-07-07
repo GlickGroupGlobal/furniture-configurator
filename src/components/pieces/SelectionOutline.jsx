@@ -1,9 +1,17 @@
-// Shared selection wireframe, previously duplicated in every piece component.
+import { useMemo } from 'react'
+import * as THREE from 'three'
+
+// Shared selection indicator. EdgesGeometry draws only the 12 hard box edges —
+// a plain wireframe material would also draw every triangle diagonal, which
+// reads as render artifacts ("facet lines") on the cabinets.
 export default function SelectionOutline({ width, height, depth }) {
+  const geometry = useMemo(
+    () => new THREE.EdgesGeometry(new THREE.BoxGeometry(width + 0.04, height + 0.04, depth + 0.04)),
+    [width, height, depth]
+  )
   return (
-    <mesh position={[0, height / 2, 0]}>
-      <boxGeometry args={[width + 0.06, height + 0.06, depth + 0.06]} />
-      <meshBasicMaterial color="#6366f1" wireframe />
-    </mesh>
+    <lineSegments position={[0, height / 2, 0]} geometry={geometry}>
+      <lineBasicMaterial color="#C1622D" />
+    </lineSegments>
   )
 }
